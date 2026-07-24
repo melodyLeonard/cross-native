@@ -20,10 +20,17 @@
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const upstream = require('@react-native/metro-babel-transformer');
+// Resolve dependencies from the app's root, not this file's location. In a
+// normal install they are the same; when the package is linked from a sibling
+// checkout, this file is reached through a symlink whose real path sits outside
+// the app's node_modules, so a bare require would miss them.
+const appRoot = process.cwd();
+const fromApp = (id) => require.resolve(id, { paths: [appRoot] });
+
+const upstream = require(fromApp('@react-native/metro-babel-transformer'));
 
 /** The compiler CLI, run through Node's type-stripping (no build step). */
-const CLI = require.resolve('@cross-native/compiler/bin/cross-native.mjs');
+const CLI = fromApp('@cross-native/compiler/bin/cross-native.mjs');
 
 /**
  * Compile one `.rs` file and return its bytes as a base64 string.
