@@ -1,0 +1,43 @@
+{
+  "name": "cross-native",
+  "version": "0.0.1",
+  "description": "Run any language in React Native — with type safety, multiple threads, and zero native code knowledge required.",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "dev": "turbo run dev --parallel",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "npm@10.5.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/cross-native.git"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "react-native",
+    "native-modules",
+    "rust",
+    "threads",
+    "performance",
+    "jsi",
+    "turbo-modules"
+  ],
+  "type": "module"
+}

@@ -1,0 +1,67 @@
+{
+  "name": "react-native-cross-native",
+  "version": "0.1.0",
+  "description": "CrossNative - Run any language in React Native via Nitro Modules + WASM",
+  "main": "lib/index.js",
+  "module": "lib/index.mjs",
+  "types": "lib/index.d.ts",
+  "react-native": "src/index",
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "ios",
+    "cpp",
+    "*.podspec",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "watch": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "clean": "rm -rf lib"
+  },
+  "keywords": [
+    "react-native",
+    "nitro",
+    "native-modules",
+    "rust",
+    "wasm",
+    "threads",
+    "performance"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/cross-native.git"
+  },
+  "author": "CrossNative Contributors",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/yourusername/cross-native/issues"
+  },
+  "homepage": "https://github.com/yourusername/cross-native#readme",
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "typescript": "^5.4.0",
+    "tsup": "^8.0.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0"
+  },
+  "dependencies": {
+    "react-native-nitro-modules": "^0.35.0"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-native": ">=0.73.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": false
+    },
+    "react-native": {
+      "optional": false
+    }
+  }
+}
