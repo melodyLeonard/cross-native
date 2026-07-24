@@ -7,15 +7,14 @@
 
 import type { NativeModule, NativeModuleConfig, CallOptions } from '../types.ts';
 import { NativeError } from '../types.ts';
-import type { Backend, CallResponse } from './backend.ts';
+import type { Backend, CallResponse, ModuleSource } from './backend.ts';
 import { BackendError } from './backend.ts';
 import { normalizeArg, type NativeArg } from './buffers.ts';
+import { isJSIAvailable, JSIBackend } from './jsi.ts';
 
 export interface BridgeOptions {
   /** Use a specific backend instead of auto-detecting one. */
   backend?: Backend;
-  /** Path to the crossnative-host binary (Node backend only). */
-  hostPath?: string;
 }
 
 export class NativeBridge {
@@ -54,20 +53,16 @@ export class NativeBridge {
   private async createBackend(): Promise<Backend> {
     if (this.options.backend) return this.options.backend;
 
+    // Imported statically: React Native turns a dynamic import() into a lazy
+    // bundle request at runtime, which fails outside a dev server.
     if (isJSIAvailable()) {
-      const { JSIBackend } = await import('./jsi.ts');
       return JSIBackend.create();
     }
 
-    if (isNodeEnvironment()) {
-      const { NodeHostBackend } = await import('./node-host.ts');
-      return NodeHostBackend.create({ hostPath: this.options.hostPath });
-    }
-
     throw new NativeError(
-      'No CrossNative backend available. On React Native this requires the ' +
-      'native module to be installed and the new architecture enabled; ' +
-      'elsewhere it requires the crossnative-host binary.'
+      'No CrossNative backend available. On React Native this means the native ' +
+      'module is not linked — rebuild the app after installing the package. ' +
+      'Off device, construct a NodeHostBackend and pass it as `backend`.'
     );
   }
 
@@ -82,8 +77,11 @@ export class NativeBridge {
     const cached = this.modules.get(config.name);
     if (cached) return cached;
 
-    const artifact = resolveArtifact(config);
-    const functions = await backend.load(config.name, config.language, artifact);
+    const functions = await backend.load(
+      config.name,
+      config.language,
+      resolveSource(config)
+    );
 
     const module = this.createHandle(config, backend, functions);
     this.modules.set(config.name, module);
@@ -178,30 +176,24 @@ function unwrapResponse(response: CallResponse): unknown {
 }
 
 /**
- * Work out which compiled artifact backs a module.
+ * Work out where a module's compiled code comes from.
  *
- * `source` points at the original source file; the CLI compiles it to a .wasm
- * sitting next to it unless `artifact` says otherwise.
+ * Explicit `bytes` win, since that is the only portable option on device.
+ * Otherwise `artifact` names the .wasm, defaulting to `source` with its
+ * extension swapped.
  */
-function resolveArtifact(config: NativeModuleConfig): string {
-  if (config.artifact) return config.artifact;
-  if (config.source.endsWith('.wasm')) return config.source;
+function resolveSource(config: NativeModuleConfig): ModuleSource {
+  if (config.bytes) {
+    const bytes = config.bytes instanceof Uint8Array
+      ? config.bytes
+      : new Uint8Array(config.bytes);
+    return { kind: 'bytes', bytes };
+  }
+
+  if (config.artifact) return { kind: 'path', path: config.artifact };
+  if (config.source.endsWith('.wasm')) return { kind: 'path', path: config.source };
 
   const withoutExtension = config.source.replace(/\.[^./\\]+$/, '');
-  return `${withoutExtension}.wasm`;
+  return { kind: 'path', path: `${withoutExtension}.wasm` };
 }
 
-function isJSIAvailable(): boolean {
-  return (
-    typeof globalThis !== 'undefined' &&
-    typeof (globalThis as any).__CrossNativeProxy !== 'undefined'
-  );
-}
-
-function isNodeEnvironment(): boolean {
-  return (
-    typeof process !== 'undefined' &&
-    process.versions != null &&
-    process.versions.node != null
-  );
-}

@@ -72,9 +72,18 @@ export interface NativeModuleConfig {
 
   /**
    * Compiled artifact to load. Defaults to `source` with its extension swapped
-   * for `.wasm`, which is where the CLI writes its build output.
+   * for `.wasm`.
    */
   artifact?: string;
+
+  /**
+   * The compiled module as bytes, taking precedence over `artifact`.
+   *
+   * This is the portable option, and the one to use on device: iOS can resolve
+   * a bundle path but Android ships assets inside the APK, where they are not
+   * real files.
+   */
+  bytes?: Uint8Array | ArrayBuffer;
 
   /** Language backend */
   language: NativeLanguage;

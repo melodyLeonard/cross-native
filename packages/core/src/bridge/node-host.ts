@@ -10,7 +10,7 @@
  *   make -C packages/nitro-module crossnative-host
  */
 
-import type { Backend, CallResponse } from './backend.ts';
+import type { Backend, CallResponse, ModuleSource } from './backend.ts';
 import { BackendError } from './backend.ts';
 import type { CallOptions } from '../types.ts';
 
@@ -145,7 +145,13 @@ export class NodeHostBackend implements Backend {
     });
   }
 
-  async load(moduleId: string, language: string, path: string): Promise<string[]> {
+  async load(moduleId: string, language: string, source: ModuleSource): Promise<string[]> {
+    // The host loads from a path, so in-memory modules are staged to a temp
+    // file. On device the JSI backend hands the bytes over directly.
+    const path = source.kind === 'path'
+      ? source.path
+      : await writeTempModule(moduleId, source.bytes);
+
     const response = await this.request({ op: 'load', moduleId, language, path });
     return response.functions ?? [];
   }
@@ -224,4 +230,21 @@ async function findHostBinary(): Promise<string | null> {
     if (parent === dir) return null;
     dir = parent;
   }
+}
+
+/**
+ * Stage in-memory module bytes to a temp file so the host can load them.
+ *
+ * This exists because the development host speaks in paths; it has no
+ * equivalent on device.
+ */
+async function writeTempModule(moduleId: string, bytes: Uint8Array): Promise<string> {
+  const { mkdtemp, writeFile } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const path = await import('node:path');
+
+  const dir = await mkdtemp(path.join(tmpdir(), 'crossnative-'));
+  const file = path.join(dir, `${moduleId}.wasm`);
+  await writeFile(file, bytes);
+  return file;
 }

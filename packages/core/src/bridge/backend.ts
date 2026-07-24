@@ -27,6 +27,17 @@ export interface CallResponse {
   };
 }
 
+/**
+ * Where a module's compiled code comes from.
+ *
+ * On a development machine a path is convenient. On device it is not: iOS can
+ * resolve a bundle path, but Android ships assets inside the APK where they are
+ * not real files, so the portable option is to hand over the bytes.
+ */
+export type ModuleSource =
+  | { kind: 'path'; path: string }
+  | { kind: 'bytes'; bytes: Uint8Array };
+
 export interface Backend {
   /** Human-readable backend name, for diagnostics. */
   readonly name: string;
@@ -34,10 +45,9 @@ export interface Backend {
   /**
    * Load a compiled module.
    *
-   * @param path Path to the compiled artifact (a .wasm file for WASM languages)
    * @returns The module's exported function names
    */
-  load(moduleId: string, language: string, path: string): Promise<string[]>;
+  load(moduleId: string, language: string, source: ModuleSource): Promise<string[]>;
 
   /** Call a function. Arguments are already in wire format. */
   call(

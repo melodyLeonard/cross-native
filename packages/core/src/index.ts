@@ -27,8 +27,7 @@ export { useNativeModule } from './api/useNative.ts';
 // Bridge
 export { NativeBridge, type BridgeOptions } from './bridge/bridge.ts';
 export { BackendError, type Backend, type CallResponse } from './bridge/backend.ts';
-export { NodeHostBackend, type NodeHostOptions } from './bridge/node-host.ts';
-export { JSIBackend } from './bridge/jsi.ts';
+export { JSIBackend, registerJSIInstaller, isJSIAvailable } from './bridge/jsi.ts';
 
 // Array arguments
 export {

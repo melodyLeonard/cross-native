@@ -14,6 +14,7 @@
  */
 
 import { createNativeModule } from '../src/api/createNativeModule.ts';
+import { NodeHostBackend } from '../src/bridge/node-host.ts';
 import { PerformancePlugin } from '../src/plugins/performance.ts';
 import type { NativeModule } from '../src/types.ts';
 import { printTable, runBenchmarks } from './benchmark.ts';
@@ -49,6 +50,11 @@ async function main(): Promise<void> {
   console.log('CrossNative — core integration suite');
   console.log(`node ${process.version} on ${process.platform}/${process.arch}`);
 
+  // The Node backend is a development harness, so it is wired up explicitly
+  // rather than auto-detected — that keeps node: built-ins out of the graph
+  // Metro walks when the library is bundled for a device.
+  const backend = await NodeHostBackend.create({ hostPath: HOST_BINARY });
+
   const compute = await createNativeModule(
     {
       name: 'compute',
@@ -57,7 +63,7 @@ async function main(): Promise<void> {
       language: 'rust',
       plugins: [PerformancePlugin({ slowThresholdMs: 250 })],
     },
-    { hostPath: HOST_BINARY }
+    { backend }
   );
 
   try {
