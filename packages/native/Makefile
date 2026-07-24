@@ -16,7 +16,8 @@ WAMR_DEFS = \
 	-DBH_PLATFORM_DARWIN -DBUILD_TARGET_AARCH64 -DBUILD_TARGET=\"aarch64v8\" \
 	-DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_FAST_INTERP=1 \
 	-DWASM_ENABLE_AOT=1 -DWASM_ENABLE_AOT_INTRINSICS=1 -DWASM_ENABLE_QUICK_AOT_ENTRY=1 \
-	-DWASM_ENABLE_LIBC_BUILTIN=1 -DWASM_ENABLE_BULK_MEMORY=1 -DWASM_ENABLE_REF_TYPES=1 \
+	-DWASM_ENABLE_LIBC_BUILTIN=1 -DWASM_ENABLE_LIBC_WASI=1 -DWASM_ENABLE_MODULE_INST_CONTEXT=1 \
+	-DWASM_ENABLE_BULK_MEMORY=1 -DWASM_ENABLE_REF_TYPES=1 \
 	-DWASM_ENABLE_SIMD=0 -DWASM_ENABLE_SHRUNK_MEMORY=1 \
 	-DWASM_ENABLE_MULTI_MODULE=0 -DWASM_ENABLE_SHARED_MEMORY=0 -DWASM_ENABLE_MINI_LOADER=0 \
 	-DWASM_ENABLE_EXTENDED_CONST_EXPR=0 \
@@ -30,6 +31,9 @@ WAMR_INC = \
 	-I$(WAMR_ROOT)/core/iwasm/aot \
 	-I$(WAMR_ROOT)/core/iwasm/common \
 	-I$(WAMR_ROOT)/core/iwasm/libraries/libc-builtin \
+	-I$(WAMR_ROOT)/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/include \
+	-I$(WAMR_ROOT)/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src \
+	-I$(WAMR_ROOT)/core/shared/platform/common/libc-util \
 	-I$(WAMR_ROOT)/core/shared/include \
 	-I$(WAMR_ROOT)/core/shared/mem-alloc \
 	-I$(WAMR_ROOT)/core/shared/platform/include \
@@ -67,6 +71,15 @@ WAMR_SOURCES = \
 	$(WAMR_ROOT)/core/iwasm/interpreter/wasm_loader.c \
 	$(WAMR_ROOT)/core/iwasm/interpreter/wasm_runtime.c \
 	$(WAMR_ROOT)/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c \
+	$(WAMR_ROOT)/core/iwasm/libraries/libc-wasi/libc_wasi_wrapper.c \
+	$(WAMR_ROOT)/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/posix.c \
+	$(WAMR_ROOT)/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/str.c \
+	$(WAMR_ROOT)/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/random.c \
+	$(WAMR_ROOT)/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/blocking_op.c \
+	$(WAMR_ROOT)/core/shared/platform/common/libc-util/libc_errno.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_file.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_clock.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_socket.c \
 	$(WAMR_ROOT)/core/shared/mem-alloc/ems/ems_alloc.c \
 	$(WAMR_ROOT)/core/shared/mem-alloc/ems/ems_gc.c \
 	$(WAMR_ROOT)/core/shared/mem-alloc/ems/ems_hmu.c \

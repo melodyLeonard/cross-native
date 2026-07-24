@@ -655,6 +655,8 @@ WasmRuntime::~WasmRuntime() = default;
 bool WasmRuntime::loadModule(const std::string& moduleId,
                               const std::vector<uint8_t>& wasmBytes,
                               std::string* outError) {
+    ensureThreadEnv();
+
     auto entry = std::make_shared<ModuleEntry>();
     // Keep a writable copy — WAMR may patch it internally.
     entry->bytes = wasmBytes;
@@ -670,6 +672,20 @@ bool WasmRuntime::loadModule(const std::string& moduleId,
         if (outError) *outError = std::string("WAMR load failed: ") + error_buf;
         return false;
     }
+
+#if WASM_ENABLE_LIBC_WASI != 0
+    // Modules compiled for WASI (C/C++ via `zig cc`, Go via wasip1) import
+    // wasi_snapshot_preview1. Give them an empty sandbox — no preopened dirs,
+    // no args, no env — which is enough for pure computation and grants no
+    // filesystem access. On non-WASI modules (Rust, freestanding Zig) this is
+    // stored but never used, because instantiation only sets up WASI when the
+    // module actually imports it.
+    wasm_runtime_set_wasi_args(entry->module,
+                               nullptr, 0,   // preopened dirs
+                               nullptr, 0,   // mapped dirs
+                               nullptr, 0,   // environment
+                               nullptr, 0);  // argv
+#endif
 
     // Instantiate with a heap so cn_alloc / cn_free work.
     entry->instance = wasm_runtime_instantiate(
@@ -691,6 +707,12 @@ bool WasmRuntime::loadModule(const std::string& moduleId,
         entry->module   = nullptr;
         return false;
     }
+
+    // WASI *reactor* modules export `_initialize` (global constructors, and for
+    // Go the runtime/scheduler bring-up) instead of `_start`. WAMR already runs
+    // it during instantiation via execute_post_instantiate_functions, so we must
+    // not call it again — Go in particular aborts with "randinit twice" if its
+    // runtime is initialized more than once.
 
     // Enumerate exports to fill entry->functions.
     {

@@ -24,6 +24,15 @@ set(WAMR_BASE_SOURCES
     ${WAMR_ROOT}/core/iwasm/interpreter/wasm_loader.c
     ${WAMR_ROOT}/core/iwasm/interpreter/wasm_runtime.c
     ${WAMR_ROOT}/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c
+    ${WAMR_ROOT}/core/iwasm/libraries/libc-wasi/libc_wasi_wrapper.c
+    ${WAMR_ROOT}/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/posix.c
+    ${WAMR_ROOT}/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/str.c
+    ${WAMR_ROOT}/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/random.c
+    ${WAMR_ROOT}/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src/blocking_op.c
+    ${WAMR_ROOT}/core/shared/platform/common/libc-util/libc_errno.c
+    ${WAMR_ROOT}/core/shared/platform/common/posix/posix_file.c
+    ${WAMR_ROOT}/core/shared/platform/common/posix/posix_clock.c
+    ${WAMR_ROOT}/core/shared/platform/common/posix/posix_socket.c
     ${WAMR_ROOT}/core/shared/mem-alloc/ems/ems_alloc.c
     ${WAMR_ROOT}/core/shared/mem-alloc/ems/ems_gc.c
     ${WAMR_ROOT}/core/shared/mem-alloc/ems/ems_hmu.c
@@ -103,7 +112,7 @@ add_library(crossnative SHARED
     src/main/jni/CrossNativeJNI.cpp
 )
 
-target_compile_definitions(crossnative PRIVATE BH_MALLOC=wasm_runtime_malloc BH_FREE=wasm_runtime_free BH_PLATFORM_ANDROID WASM_ENABLE_INTERP=1 WASM_ENABLE_FAST_INTERP=1 WASM_ENABLE_LIBC_BUILTIN=1 WASM_ENABLE_BULK_MEMORY=1 WASM_ENABLE_REF_TYPES=1 WASM_ENABLE_SIMD=0 WASM_ENABLE_SHRUNK_MEMORY=1 WASM_ENABLE_MULTI_MODULE=0 WASM_ENABLE_SHARED_MEMORY=0 WASM_ENABLE_MINI_LOADER=0 WASM_ENABLE_EXTENDED_CONST_EXPR=0 WASM_DISABLE_HW_BOUND_CHECK=1 WASM_DISABLE_STACK_HW_BOUND_CHECK=1 WASM_DISABLE_WAKEUP_BLOCKING_OP=0 WASM_HAVE_MREMAP=0 WASM_GLOBAL_HEAP_SIZE=10485760 ${WAMR_ABI_DEFS})
+target_compile_definitions(crossnative PRIVATE BH_MALLOC=wasm_runtime_malloc BH_FREE=wasm_runtime_free BH_PLATFORM_ANDROID WASM_ENABLE_INTERP=1 WASM_ENABLE_FAST_INTERP=1 WASM_ENABLE_LIBC_BUILTIN=1 WASM_ENABLE_LIBC_WASI=1 WASM_ENABLE_MODULE_INST_CONTEXT=1 WASM_ENABLE_BULK_MEMORY=1 WASM_ENABLE_REF_TYPES=1 WASM_ENABLE_SIMD=0 WASM_ENABLE_SHRUNK_MEMORY=1 WASM_ENABLE_MULTI_MODULE=0 WASM_ENABLE_SHARED_MEMORY=0 WASM_ENABLE_MINI_LOADER=0 WASM_ENABLE_EXTENDED_CONST_EXPR=0 WASM_DISABLE_HW_BOUND_CHECK=1 WASM_DISABLE_STACK_HW_BOUND_CHECK=1 WASM_DISABLE_WAKEUP_BLOCKING_OP=0 WASM_HAVE_MREMAP=0 WASM_GLOBAL_HEAP_SIZE=10485760 ${WAMR_ABI_DEFS})
 
 target_include_directories(crossnative PRIVATE
     ${PACKAGE_ROOT}/cpp
@@ -113,6 +122,9 @@ target_include_directories(crossnative PRIVATE
     ${WAMR_ROOT}/core/iwasm/aot
     ${WAMR_ROOT}/core/iwasm/common
     ${WAMR_ROOT}/core/iwasm/libraries/libc-builtin
+    ${WAMR_ROOT}/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/include
+    ${WAMR_ROOT}/core/iwasm/libraries/libc-wasi/sandboxed-system-primitives/src
+    ${WAMR_ROOT}/core/shared/platform/common/libc-util
     ${WAMR_ROOT}/core/shared/include
     ${WAMR_ROOT}/core/shared/mem-alloc
     ${WAMR_ROOT}/core/shared/platform/include
