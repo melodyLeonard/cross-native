@@ -32,22 +32,35 @@ const product = await compute.call('matrix_multiply', [a, b, outBuffer(n * n), n
 
 ---
 
-## ⚠️ Project status
+## Status — Rust beats JS on both platforms
+
+Write a plain `.rs`, no cargo commands, call it from JS off the UI thread — and
+it runs **faster than JavaScript**, verified on real devices:
+
+| Benchmark | Platform | Rust | JS (Hermes) | |
+|-----------|----------|------|-------------|--|
+| Float loop, 3M iterations | iOS (native FFI) | **25ms** | 195ms | 🦀 7.8× |
+| Matrix 120×120 | iOS (native FFI) | **16ms** | 58ms | 🦀 3.6× |
+| Float loop, 3M iterations | Android (WASM-AOT) | **81ms** | 286ms | 🦀 3.5× |
+| Matrix 120×120 | Android (WASM-AOT) | **20ms** | 40ms | 🦀 2.0× |
+
+Every run kept the UI thread live.
 
 | Component | Status |
 |-----------|--------|
-| C++ core — wasm3 runtime, thread pool, argument marshalling | ✅ Working, 21 checks |
-| Rust → WASM → call → result | ✅ Working, verified end-to-end |
-| TypeScript API — `createNativeModule`, buffers, plugins | ✅ Working, 12 checks |
-| Node development backend | ✅ Working |
-| JSI backend | ✅ Working |
-| **iOS** | ✅ Working — verified on an iOS 26 simulator with RN 0.86 |
-| **Android** | ✅ Working — verified on an API 36 emulator, all four ABIs build |
+| C++ core — WAMR runtime, thread pool, argument marshalling | ✅ 22 checks |
+| `#[crossnative]` macro — plain Rust, named typed calls | ✅ |
+| Language registry + validation | ✅ |
+| Zero-config `.rs` (Metro transformer, no cargo) | ✅ |
+| TypeScript API, Node dev backend, JSI backend | ✅ 19 checks |
+| **iOS** — native FFI (Rust linked into the app, App-Store-legal) | ✅ 7.8× on device |
+| **Android** — WASM interpreter + AOT (runtime `.aot`) | ✅ 3.5× on device |
 | npm release | ❌ Not published |
 
-It runs in a real React Native app on both platforms today: a Rust module
-compiled to WASM, executing on a worker thread, with the UI staying responsive
-throughout.
+Each platform takes the fastest legal path: iOS links native Rust (it forbids
+runtime code loading); Android loads AOT-compiled WASM at runtime (it allows
+executable memory). The WASM **interpreter** works everywhere as the portable
+dev/fallback path. All three come from the same `#[crossnative]` source.
 
 ---
 
