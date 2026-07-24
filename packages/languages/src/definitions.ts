@@ -44,41 +44,39 @@ export const LANGUAGES: readonly LanguageDefinition[] = [
     id: 'go',
     displayName: 'Go',
     extensions: ['.go'],
-    support: 'planned',
+    support: 'experimental',
     artifact: 'wasm',
+    // Plain Go (no TinyGo): `GOOS=wasip1 GOARCH=wasm go build`. Needs a Go with
+    // the //go:wasmexport directive — 1.24+. CROSSNATIVE_GO overrides the binary.
     toolchain: [
       {
-        id: 'tinygo',
-        label: 'TinyGo',
-        probe: ['tinygo', 'version'],
-        installUrl: 'https://tinygo.org/getting-started/install/',
-        installHint: 'Install TinyGo from https://tinygo.org/getting-started/install/',
+        id: 'go',
+        label: 'Go (1.24+)',
+        probe: [process.env.CROSSNATIVE_GO ?? 'go', 'version'],
+        installUrl: 'https://go.dev/dl/',
+        installHint: 'Install Go 1.24+ from https://go.dev/dl/, or set CROSSNATIVE_GO',
       },
     ],
-    notReadyReason:
-      'The runtime already loads any .wasm binary, but CrossNative has no TinyGo ' +
-      'compile step yet, so it cannot build your .go files for you.\n' +
-      'Workaround: compile to WebAssembly yourself and pass the bytes directly.',
   },
   {
     id: 'zig',
     displayName: 'Zig',
     extensions: ['.zig'],
-    support: 'planned',
+    support: 'experimental',
     artifact: 'wasm',
     toolchain: [
       {
         id: 'zig',
         label: 'Zig',
-        probe: ['zig', 'version'],
+        // CROSSNATIVE_ZIG overrides the binary, mirroring how the Rust driver
+        // finds wamrc — so a project can point at a vendored toolchain without a
+        // system-wide install.
+        probe: [process.env.CROSSNATIVE_ZIG ?? 'zig', 'version'],
         installUrl: 'https://ziglang.org/download/',
-        installHint: 'Install Zig from https://ziglang.org/download/',
+        installHint: 'Install Zig from https://ziglang.org/download/, ' +
+          'or set CROSSNATIVE_ZIG to a Zig binary',
       },
     ],
-    notReadyReason:
-      'Zig compiles to WebAssembly cleanly, but CrossNative has no compile step ' +
-      'or metadata macro for it yet.\n' +
-      'Workaround: compile to WebAssembly yourself and pass the bytes directly.',
   },
   {
     id: 'assemblyscript',
@@ -100,23 +98,40 @@ export const LANGUAGES: readonly LanguageDefinition[] = [
       'Workaround: compile to WebAssembly yourself and pass the bytes directly.',
   },
   {
+    id: 'c',
+    displayName: 'C',
+    extensions: ['.c'],
+    support: 'experimental',
+    artifact: 'wasm',
+    // C is compiled by Zig's bundled clang (`zig cc`), so it shares the Zig
+    // toolchain — no separate wasi-sdk or emscripten install.
+    toolchain: [
+      {
+        id: 'zig',
+        label: 'Zig (clang)',
+        probe: [process.env.CROSSNATIVE_ZIG ?? 'zig', 'version'],
+        installUrl: 'https://ziglang.org/download/',
+        installHint: 'Install Zig from https://ziglang.org/download/ ' +
+          '(it bundles clang for C), or set CROSSNATIVE_ZIG',
+      },
+    ],
+  },
+  {
     id: 'cpp',
     displayName: 'C++',
     extensions: ['.cc', '.cpp', '.cxx'],
-    support: 'planned',
-    artifact: 'library',
+    support: 'experimental',
+    artifact: 'wasm',
+    // Same story as C: `zig c++` gives a WASI-reactor wasm with libc++ linked.
     toolchain: [
       {
-        id: 'clang++',
-        label: 'Clang',
-        probe: ['clang++', '--version'],
-        installUrl: 'https://clang.llvm.org/get_started.html',
-        installHint: 'Install Clang, or Xcode Command Line Tools on macOS',
+        id: 'zig',
+        label: 'Zig (clang++)',
+        probe: [process.env.CROSSNATIVE_ZIG ?? 'zig', 'version'],
+        installUrl: 'https://ziglang.org/download/',
+        installHint: 'Install Zig from https://ziglang.org/download/ ' +
+          '(it bundles clang++ for C++), or set CROSSNATIVE_ZIG',
       },
     ],
-    notReadyReason:
-      'C++ modules load as a shared library rather than WebAssembly, which means ' +
-      'they must be compiled into the app rather than loaded at runtime. That ' +
-      'path exists in the native layer but is untested and has no build step.',
   },
 ];

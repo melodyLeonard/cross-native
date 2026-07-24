@@ -30,10 +30,15 @@ export interface ToolchainReport {
 /** Run a command, capturing output. Never throws. */
 export function run(
   command: string[],
-  cwd?: string
+  cwd?: string,
+  env?: Record<string, string>
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn(command[0], command.slice(1), { cwd, stdio: 'pipe' });
+    const child = spawn(command[0], command.slice(1), {
+      cwd,
+      stdio: 'pipe',
+      env: env ? { ...process.env, ...env } : process.env,
+    });
 
     let stdout = '';
     let stderr = '';

@@ -8,12 +8,19 @@
 
 import { requireUsableLanguage } from '@cross-native/languages';
 import { compileRust } from './drivers/rust.ts';
+import { compileZig } from './drivers/zig.ts';
+import { compileC, compileCpp } from './drivers/clang.ts';
+import { compileGo } from './drivers/go.ts';
 import { describeMissing, inspectToolchain, applyFixes } from './toolchain.ts';
 import type { CompileRequest, CompileResult } from './types.ts';
 
 /** Drivers, by language id. Adding a language means adding an entry. */
 const DRIVERS: Record<string, (request: CompileRequest) => Promise<CompileResult>> = {
   rust: compileRust,
+  zig: compileZig,
+  c: compileC,
+  cpp: compileCpp,
+  go: compileGo,
 };
 
 export interface CompileOptions extends CompileRequest {
