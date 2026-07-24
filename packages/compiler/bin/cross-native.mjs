@@ -23,6 +23,8 @@ import {
 } from '@cross-native/languages';
 import {
   compile,
+  compileAot,
+  resolveWamrc,
   embedWasm,
   toBase64,
   inspectToolchain,
@@ -96,14 +98,31 @@ async function build({ dir, flags }) {
     process.exit(1);
   }
 
+  // AOT is opt-in: near-native speed, but needs wamrc. When requested but
+  // unavailable we fall back to the interpreter .wasm rather than fail.
+  let artifact = result.artifactPath;
+  if (flags.aot) {
+    if (!resolveWamrc()) {
+      log('  note: wamrc not available (CROSSNATIVE_WAMRC unset) — shipping interpreter WASM');
+    } else {
+      const aot = await compileAot(result.artifactPath);
+      if (aot.ok) {
+        artifact = aot.artifactPath;
+        log(`  aot       ${artifact}`);
+      } else {
+        log(`  note: AOT failed (${aot.error}) — shipping interpreter WASM`);
+      }
+    }
+  }
+
   // Metro transformer path: print base64 to stdout, nothing else.
   if (flags.stdout) {
-    process.stdout.write(await toBase64(result.artifactPath));
+    process.stdout.write(await toBase64(artifact));
     return;
   }
 
   const out = resolve(flags.out ?? join(sourceDir, '..', 'src', 'generated', 'native.ts'));
-  const size = await embedWasm(result.artifactPath, out);
+  const size = await embedWasm(artifact, out);
 
   log(`  compiled  ${result.artifactPath}`);
   log(`  embedded  ${out}  (${size.toLocaleString()} bytes)`);

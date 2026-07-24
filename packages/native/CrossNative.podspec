@@ -21,7 +21,11 @@ Pod::Spec.new do |s|
     "ios/**/*.{h,m,mm}",
     "jsi/**/*.{hpp,cpp}",
     "cpp/**/*.{h,hpp,c,cpp}",
-    "wamr/core/iwasm/common/arch/invokeNative_general.c",
+    "wamr/core/iwasm/common/arch/invokeNative_aarch64.s",
+    "wamr/core/iwasm/aot/aot_intrinsic.c",
+    "wamr/core/iwasm/aot/aot_loader.c",
+    "wamr/core/iwasm/aot/aot_runtime.c",
+    "wamr/core/iwasm/aot/arch/aot_reloc_aarch64.c",
     "wamr/core/iwasm/common/wasm_application.c",
     "wamr/core/iwasm/common/wasm_blocking_op.c",
     "wamr/core/iwasm/common/wasm_c_api.c",
@@ -78,6 +82,7 @@ Pod::Spec.new do |s|
       "\"$(PODS_TARGET_SRCROOT)/jsi\"",
       "\"$(PODS_TARGET_SRCROOT)/wamr/core/iwasm/include\"",
       "\"$(PODS_TARGET_SRCROOT)/wamr/core/iwasm/interpreter\"",
+      "\"$(PODS_TARGET_SRCROOT)/wamr/core/iwasm/aot\"",
       "\"$(PODS_TARGET_SRCROOT)/wamr/core/iwasm/common\"",
       "\"$(PODS_TARGET_SRCROOT)/wamr/core/iwasm/libraries/libc-builtin\"",
       "\"$(PODS_TARGET_SRCROOT)/wamr/core/shared/include\"",
@@ -90,8 +95,12 @@ Pod::Spec.new do |s|
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
     # WAMR feature configuration, matching the verified host build. Applies to
     # the whole pod target; harmless to the C++ glue.
-    "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) BH_MALLOC=wasm_runtime_malloc BH_FREE=wasm_runtime_free BH_PLATFORM_DARWIN BUILD_TARGET_AARCH64 WASM_ENABLE_INTERP=1 WASM_ENABLE_FAST_INTERP=1 WASM_ENABLE_AOT=0 WASM_ENABLE_LIBC_BUILTIN=1 WASM_ENABLE_BULK_MEMORY=1 WASM_ENABLE_REF_TYPES=1 WASM_ENABLE_SIMD=0 WASM_ENABLE_SHRUNK_MEMORY=1 WASM_ENABLE_MULTI_MODULE=0 WASM_ENABLE_SHARED_MEMORY=0 WASM_ENABLE_MINI_LOADER=0 WASM_ENABLE_EXTENDED_CONST_EXPR=0 WASM_DISABLE_HW_BOUND_CHECK=1 WASM_DISABLE_STACK_HW_BOUND_CHECK=1 WASM_DISABLE_WAKEUP_BLOCKING_OP=0 WASM_HAVE_MREMAP=0 WASM_GLOBAL_HEAP_SIZE=10485760 NDEBUG",
+    "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) BH_MALLOC=wasm_runtime_malloc BH_FREE=wasm_runtime_free BH_PLATFORM_DARWIN BUILD_TARGET_AARCH64 WASM_ENABLE_INTERP=1 WASM_ENABLE_FAST_INTERP=1 WASM_ENABLE_AOT=1 WASM_ENABLE_AOT_INTRINSICS=1 WASM_ENABLE_QUICK_AOT_ENTRY=1 BUILD_TARGET_AARCH64 BUILD_TARGET=\\\"aarch64v8\\\" WASM_ENABLE_LIBC_BUILTIN=1 WASM_ENABLE_BULK_MEMORY=1 WASM_ENABLE_REF_TYPES=1 WASM_ENABLE_SIMD=0 WASM_ENABLE_SHRUNK_MEMORY=1 WASM_ENABLE_MULTI_MODULE=0 WASM_ENABLE_SHARED_MEMORY=0 WASM_ENABLE_MINI_LOADER=0 WASM_ENABLE_EXTENDED_CONST_EXPR=0 WASM_DISABLE_HW_BOUND_CHECK=1 WASM_DISABLE_STACK_HW_BOUND_CHECK=1 WASM_DISABLE_WAKEUP_BLOCKING_OP=0 WASM_HAVE_MREMAP=0 WASM_GLOBAL_HEAP_SIZE=10485760 NDEBUG",
     # WAMR uses computed goto and takes label addresses.
     "GCC_WARN_ABOUT_RETURN_TYPE" => "NO",
+    # WAMR's aarch64 trampoline guards ELF-only directives behind
+    # BH_PLATFORM_DARWIN, which only takes effect when the .s is preprocessed.
+    "OTHER_CFLAGS" => "$(inherited)",
+    "GCC_INPUT_FILETYPE" => "automatic",
   }
 end

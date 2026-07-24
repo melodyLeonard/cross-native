@@ -16,3 +16,4 @@ export {
   type ToolchainReport,
 } from './toolchain.ts';
 export { embedWasm, toBase64 } from './embed.ts';
+export { compileAot, resolveWamrc, type AotResult } from './aot.ts';

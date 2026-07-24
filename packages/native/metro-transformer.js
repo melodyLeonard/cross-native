@@ -40,12 +40,16 @@ const CLI = fromApp('@cross-native/compiler/bin/cross-native.mjs');
  * stdout (diagnostics go to stderr), which we capture here.
  */
 function compileRust(filename) {
-  const base64 = execFileSync(
-    process.execPath,
-    ['--experimental-strip-types', CLI, 'build', path.dirname(filename),
-     '--language', 'rust', '--entry', path.basename(filename), '--stdout'],
-    { stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 64 * 1024 * 1024 }
-  ).toString('utf8').trim();
+  // AOT (near-native) is opt-in via CROSSNATIVE_AOT, since it needs wamrc and is
+  // slower to build; the default interpreter path keeps fast-refresh instant.
+  const args = ['--experimental-strip-types', CLI, 'build', path.dirname(filename),
+    '--language', 'rust', '--entry', path.basename(filename), '--stdout'];
+  if (process.env.CROSSNATIVE_AOT === '1') args.push('--aot');
+
+  const base64 = execFileSync(process.execPath, args, {
+    stdio: ['ignore', 'pipe', 'inherit'],
+    maxBuffer: 64 * 1024 * 1024,
+  }).toString('utf8').trim();
 
   return `export default ${JSON.stringify(base64)};`;
 }
