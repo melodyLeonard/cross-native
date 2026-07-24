@@ -161,6 +161,18 @@ void CrossNative::installWasmModule(const std::string& moduleId,
                  std::make_shared<WasmModule>(moduleId, language, wasmRuntime_.get()));
 }
 
+bool CrossNative::loadLinkedModule(const std::string& moduleId) {
+  try {
+    registerModule(moduleId,
+                   std::make_shared<SharedLibraryModule>(
+                       moduleId, SharedLibraryModule::Linked{}));
+    return true;
+  } catch (const std::exception& e) {
+    log(LogLevel::Error, "Failed to load linked module " + moduleId + ": " + e.what());
+    return false;
+  }
+}
+
 void CrossNative::installSharedLibrary(const std::string& moduleId,
                                        const std::string& libraryPath) {
   auto module = loadSharedLibrary(moduleId, libraryPath);

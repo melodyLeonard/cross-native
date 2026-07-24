@@ -86,13 +86,21 @@ private:
  */
 class SharedLibraryModule : public NativeModule {
 public:
+  /// Load from a file via dlopen (Android .so, a dev .dylib).
   SharedLibraryModule(const std::string& id, const std::string& libraryPath);
+
+  /// Resolve crossnative_call from the app itself (RTLD_DEFAULT), for a Rust
+  /// static library linked into the binary — the iOS path, where dlopen of
+  /// arbitrary code is forbidden. `Linked` selects this overload.
+  struct Linked {};
+  SharedLibraryModule(const std::string& id, Linked);
+
   ~SharedLibraryModule() override;
 
   std::string getId() const override { return id_; }
-  std::string getLanguage() const override { return "cpp"; }
+  std::string getLanguage() const override { return "rust"; }
   std::vector<std::string> getFunctions() const override;
-  std::string getManifest() const override { return "[]"; }
+  std::string getManifest() const override;
   std::string call(const std::string& functionName, const std::string& argsJson, bool zeroCopy) override;
   std::string callSync(const std::string& functionName, const std::string& argsJson) override;
   void dispose() override;
@@ -103,7 +111,9 @@ private:
   void* handle_ = nullptr; // dlopen handle
 
   using CallFunc = const char* (*)(const char*);
+  using ManifestFunc = const char* (*)();
   CallFunc callFunc_ = nullptr;
+  ManifestFunc manifestFunc_ = nullptr;
 };
 
 } // namespace crossnative

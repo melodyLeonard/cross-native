@@ -36,7 +36,9 @@ export interface CallResponse {
  */
 export type ModuleSource =
   | { kind: 'path'; path: string }
-  | { kind: 'bytes'; bytes: Uint8Array };
+  | { kind: 'bytes'; bytes: Uint8Array }
+  /** A Rust static library linked into the app (iOS native FFI). */
+  | { kind: 'linked' };
 
 /** What a backend reports after loading a module. */
 export interface LoadedModule {

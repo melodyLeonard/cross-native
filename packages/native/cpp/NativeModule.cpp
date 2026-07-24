@@ -63,6 +63,29 @@ SharedLibraryModule::SharedLibraryModule(const std::string& id,
     handle_ = nullptr;
     throw std::runtime_error("Library missing 'crossnative_call' export");
   }
+  manifestFunc_ = reinterpret_cast<ManifestFunc>(dlsym(handle_, "crossnative_manifest"));
+}
+
+SharedLibraryModule::SharedLibraryModule(const std::string& id, Linked)
+    : id_(id), libraryPath_("<linked>") {
+  // The Rust static library is linked into the app, so its symbols live in the
+  // main image rather than a loadable file. RTLD_DEFAULT searches everything
+  // already loaded — no dlopen, which iOS forbids for arbitrary code.
+  callFunc_ = reinterpret_cast<CallFunc>(dlsym(RTLD_DEFAULT, "crossnative_call"));
+  if (!callFunc_) {
+    throw std::runtime_error(
+        "No linked 'crossnative_call' symbol found. Is the Rust static library "
+        "linked into the app (with -force_load)?");
+  }
+  manifestFunc_ = reinterpret_cast<ManifestFunc>(dlsym(RTLD_DEFAULT, "crossnative_manifest"));
+}
+
+std::string SharedLibraryModule::getManifest() const {
+  if (manifestFunc_) {
+    const char* json = manifestFunc_();
+    if (json) return std::string(json);
+  }
+  return "[]";
 }
 
 SharedLibraryModule::~SharedLibraryModule() {

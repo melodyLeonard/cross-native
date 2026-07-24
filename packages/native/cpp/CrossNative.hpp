@@ -125,6 +125,15 @@ public:
         const std::string& argsJson
     );
     
+    /**
+     * Register a Rust module linked into the app as a native static library.
+     *
+     * Its code is in the app binary (iOS, where runtime code loading is
+     * forbidden), reached through the crossnative_call / crossnative_manifest
+     * symbols rather than a loaded .wasm/.aot.
+     */
+    bool loadLinkedModule(const std::string& moduleId);
+
     void unloadModule(const std::string& moduleId);
     bool isModuleLoaded(const std::string& moduleId);
     std::vector<std::string> getModuleFunctions(const std::string& moduleId);

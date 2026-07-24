@@ -25,6 +25,7 @@ interface CrossNativeProxy {
     argsJson: string,
     optionsJson: string
   ): Promise<string>;
+  loadLinkedModule(moduleId: string): string;
   getModuleFunctions(moduleId: string): string[];
   getModuleManifest(moduleId: string): string;
   isModuleLoaded(moduleId: string): boolean;
@@ -79,6 +80,20 @@ export class JSIBackend implements Backend {
 
   async load(moduleId: string, language: string, source: ModuleSource): Promise<LoadedModule> {
     const proxy = getProxy();
+
+    // A linked module is resolved from the app's own symbols; there is nothing
+    // to load, and its manifest doubles as its function list.
+    if (source.kind === 'linked') {
+      let manifest = [];
+      try {
+        manifest = JSON.parse(proxy.loadLinkedModule(moduleId));
+      } catch (error) {
+        throw new BackendError(
+          `Failed to load linked module '${moduleId}': ${(error as Error).message}`
+        );
+      }
+      return { functions: manifest.map((m: { name: string }) => m.name), manifest };
+    }
 
     const loaded = source.kind === 'bytes'
       ? await proxy.loadModuleFromBuffer(moduleId, language, source.bytes)

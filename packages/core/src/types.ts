@@ -130,6 +130,13 @@ export interface NativeModuleConfig {
    */
   bytes?: Uint8Array | ArrayBuffer;
 
+  /**
+   * Use a Rust static library linked into the app instead of loading a module.
+   * The iOS speed path: iOS forbids loading executable code at runtime, so the
+   * Rust is compiled to a static library and linked into the app binary.
+   */
+  linked?: boolean;
+
   /** Language backend */
   language: NativeLanguage;
 
