@@ -74,6 +74,30 @@ void testModuleLoading(CrossNative& cn) {
          std::to_string(functions.size()) + " exports");
 }
 
+/// Loading from memory is the path the device build uses, so it gets its own
+/// module id and is checked to actually execute.
+void testLoadFromBytes(CrossNative& cn, const std::string& wasmPath) {
+  section("Loading from bytes");
+
+  auto bytes = readWasmFile(wasmPath);
+  report("reads the WASM file", !bytes.empty(),
+         std::to_string(bytes.size()) + " bytes");
+  if (bytes.empty()) return;
+
+  const bool loaded = cn.loadModuleFromBytes("from_bytes", "rust", bytes).get();
+  report("loads a module from a byte buffer", loaded);
+  if (!loaded) return;
+
+  auto result = cn.callFunction("from_bytes", "add", "[2,3]").get();
+  const bool ok = result.success &&
+                  json::parse(result.data)["result"].get<double>() == 5.0;
+  report("a byte-loaded module executes", ok, ok ? "" : result.error);
+
+  // Two runtimes for the same binary must stay independent.
+  report("coexists with the path-loaded module", cn.isModuleLoaded(kModuleId));
+  cn.unloadModule("from_bytes");
+}
+
 void testScalars(CrossNative& cn) {
   section("Scalar functions");
   expectNumber(cn, "add(1.5, 2.5) == 4", "add", json::array({1.5, 2.5}), 4.0);
@@ -225,6 +249,7 @@ int main(int argc, char** argv) {
   report("loads a Rust-compiled WASM module", true);
   testModuleLoading(cn);
 
+  testLoadFromBytes(cn, wasmPath);
   testScalars(cn);
   testErrorHandling(cn);
 

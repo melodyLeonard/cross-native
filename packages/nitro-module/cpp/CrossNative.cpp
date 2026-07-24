@@ -6,6 +6,12 @@ namespace crossnative {
 
 namespace {
 
+/// Languages that reach the runtime as a WASM binary.
+bool isWasmLanguage(const std::string& language) {
+  return language == "wasm" || language == "rust" || language == "go" ||
+         language == "zig" || language == "assemblyscript";
+}
+
 /**
  * Unpack the runtime's JSON envelope into a NativeResult.
  *
@@ -60,41 +66,80 @@ std::future<bool> CrossNative::loadModule(
   return threadPool_->enqueue(TaskPriority::HIGH, [this, moduleId, language, sourcePath]() -> bool {
     try {
       log(LogLevel::INFO, "Loading module: " + moduleId + " (" + language + ")");
-      std::shared_ptr<NativeModule> module;
 
-      if (language == "wasm" || language == "rust" || language == "go" ||
-          language == "zig" || language == "assemblyscript") {
-        // By this point the CLI has already compiled the source to WASM.
+      if (isWasmLanguage(language)) {
+        // The source has already been compiled to WASM by this point.
         auto wasmBytes = readWasmFile(sourcePath);
         if (wasmBytes.empty()) {
           throw std::runtime_error("Could not read WASM file: " + sourcePath);
         }
-
-        std::string error;
-        if (!wasmRuntime_->loadModule(moduleId, wasmBytes, &error)) {
-          throw std::runtime_error(error);
-        }
-
-        module = std::make_shared<WasmModule>(moduleId, language, wasmRuntime_.get());
+        installWasmModule(moduleId, language, wasmBytes);
       } else if (language == "cpp" || language == "c++") {
-        module = loadSharedLibrary(moduleId, sourcePath);
-        if (!module) {
-          throw std::runtime_error("Could not load shared library: " + sourcePath);
-        }
+        installSharedLibrary(moduleId, sourcePath);
       } else {
         throw std::runtime_error("Unsupported language: " + language);
       }
-
-      std::lock_guard<std::mutex> lock(modulesMutex_);
-      modules_[moduleId] = module;
-      log(LogLevel::INFO, "Module loaded: " + moduleId + " (" +
-          std::to_string(module->getFunctions().size()) + " exported functions)");
       return true;
     } catch (const std::exception& e) {
       log(LogLevel::ERROR, "Failed to load module " + moduleId + ": " + e.what());
       return false;
     }
   });
+}
+
+std::future<bool> CrossNative::loadModuleFromBytes(
+    const std::string& moduleId,
+    const std::string& language,
+    std::vector<uint8_t> wasmBytes) {
+  return threadPool_->enqueue(
+      TaskPriority::HIGH,
+      [this, moduleId, language, bytes = std::move(wasmBytes)]() -> bool {
+        try {
+          log(LogLevel::INFO, "Loading module from bytes: " + moduleId +
+              " (" + language + ", " + std::to_string(bytes.size()) + " bytes)");
+
+          if (!isWasmLanguage(language)) {
+            throw std::runtime_error(
+                "Only WASM languages can be loaded from bytes, got: " + language);
+          }
+          installWasmModule(moduleId, language, bytes);
+          return true;
+        } catch (const std::exception& e) {
+          log(LogLevel::ERROR, "Failed to load module " + moduleId + ": " + e.what());
+          return false;
+        }
+      });
+}
+
+void CrossNative::installWasmModule(const std::string& moduleId,
+                                    const std::string& language,
+                                    const std::vector<uint8_t>& wasmBytes) {
+  std::string error;
+  if (!wasmRuntime_->loadModule(moduleId, wasmBytes, &error)) {
+    throw std::runtime_error(error);
+  }
+  registerModule(moduleId,
+                 std::make_shared<WasmModule>(moduleId, language, wasmRuntime_.get()));
+}
+
+void CrossNative::installSharedLibrary(const std::string& moduleId,
+                                       const std::string& libraryPath) {
+  auto module = loadSharedLibrary(moduleId, libraryPath);
+  if (!module) {
+    throw std::runtime_error("Could not load shared library: " + libraryPath);
+  }
+  registerModule(moduleId, std::move(module));
+}
+
+void CrossNative::registerModule(const std::string& moduleId,
+                                 std::shared_ptr<NativeModule> module) {
+  const size_t functionCount = module->getFunctions().size();
+  {
+    std::lock_guard<std::mutex> lock(modulesMutex_);
+    modules_[moduleId] = std::move(module);
+  }
+  log(LogLevel::INFO, "Module loaded: " + moduleId + " (" +
+      std::to_string(functionCount) + " exported functions)");
 }
 
 std::future<NativeResult> CrossNative::callFunction(
