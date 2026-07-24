@@ -12,7 +12,10 @@
     "test:native": "make -C packages/nitro-module check",
     "test:core": "npm run build:native && node --experimental-strip-types packages/core/test/run.ts",
     "clean": "make -C packages/nitro-module clean",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "link": "node scripts/link-workspaces.mjs",
+    "pretest": "npm run link",
+    "prebuild:native": "npm run link"
   },
   "devDependencies": {
     "prettier": "^3.2.0",

@@ -12,6 +12,7 @@ import { BackendError } from './backend.ts';
 import { normalizeArg, type NativeArg } from './buffers.ts';
 import { isJSIAvailable, JSIBackend } from './jsi.ts';
 import { buildCallables } from './callables.ts';
+import { requireUsableLanguage } from '@cross-native/languages';
 
 export interface BridgeOptions {
   /** Use a specific backend instead of auto-detecting one. */
@@ -72,6 +73,10 @@ export class NativeBridge {
    * return the cached handle.
    */
   async loadModule(config: NativeModuleConfig): Promise<NativeModule> {
+    // Fail here, with a message naming what is supported, rather than deep in
+    // the native layer with a truncated error.
+    requireUsableLanguage(config.language);
+
     await this.initialize();
     const backend = this.backend!;
 

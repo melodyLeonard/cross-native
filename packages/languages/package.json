@@ -1,0 +1,12 @@
+{
+  "name": "@cross-native/languages",
+  "version": "0.1.0",
+  "description": "Language registry and validation for CrossNative",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "react-native": "src/index.ts",
+  "files": ["src"],
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.6.0" }
+}

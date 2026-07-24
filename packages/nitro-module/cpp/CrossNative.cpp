@@ -6,10 +6,19 @@ namespace crossnative {
 
 namespace {
 
-/// Languages that reach the runtime as a WASM binary.
-bool isWasmLanguage(const std::string& language) {
-  return language == "wasm" || language == "rust" || language == "go" ||
-         language == "zig" || language == "assemblyscript";
+/**
+ * Whether a path names a WebAssembly binary.
+ *
+ * The native layer deliberately knows nothing about languages. Which languages
+ * exist, which are supported and what they compile to is decided once, in
+ * @cross-native/languages; here the only question is what kind of artifact we
+ * were handed. `language` is carried through for diagnostics only.
+ */
+bool isWasmArtifact(const std::string& path) {
+  constexpr const char* kSuffix = ".wasm";
+  constexpr size_t kSuffixLength = 5;
+  return path.size() >= kSuffixLength &&
+         path.compare(path.size() - kSuffixLength, kSuffixLength, kSuffix) == 0;
 }
 
 /**
@@ -94,17 +103,15 @@ std::future<bool> CrossNative::loadModule(
     try {
       log(LogLevel::Info, "Loading module: " + moduleId + " (" + language + ")");
 
-      if (isWasmLanguage(language)) {
-        // The source has already been compiled to WASM by this point.
+      if (isWasmArtifact(sourcePath)) {
         auto wasmBytes = readWasmFile(sourcePath);
         if (wasmBytes.empty()) {
           throw std::runtime_error("Could not read WASM file: " + sourcePath);
         }
         installWasmModule(moduleId, language, wasmBytes);
-      } else if (language == "cpp" || language == "c++") {
-        installSharedLibrary(moduleId, sourcePath);
       } else {
-        throw std::runtime_error("Unsupported language: " + language);
+        // Anything else is treated as a shared library exporting the C ABI.
+        installSharedLibrary(moduleId, sourcePath);
       }
       return true;
     } catch (const std::exception& e) {
@@ -125,10 +132,6 @@ std::future<bool> CrossNative::loadModuleFromBytes(
           log(LogLevel::Info, "Loading module from bytes: " + moduleId +
               " (" + language + ", " + std::to_string(bytes.size()) + " bytes)");
 
-          if (!isWasmLanguage(language)) {
-            throw std::runtime_error(
-                "Only WASM languages can be loaded from bytes, got: " + language);
-          }
           installWasmModule(moduleId, language, bytes);
           return true;
         } catch (const std::exception& e) {
@@ -260,10 +263,6 @@ void CrossNative::loadModuleFromBytesAsync(
       [this, moduleId, language, bytes = std::move(wasmBytes),
        callback = std::move(callback)] {
         try {
-          if (!isWasmLanguage(language)) {
-            throw std::runtime_error(
-                "Only WASM languages can be loaded from bytes, got: " + language);
-          }
           installWasmModule(moduleId, language, bytes);
           callback(true, "");
         } catch (const std::exception& e) {

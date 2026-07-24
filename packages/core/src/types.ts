@@ -2,6 +2,8 @@
  * Core type definitions for CrossNative
  */
 
+import type { LanguageId } from '@cross-native/languages';
+
 /** One parameter of a declared signature. */
 export interface SignatureParam {
   name: string;
@@ -28,8 +30,14 @@ export interface NativeFunction {
   readonly signature?: FunctionSignature;
 }
 
-/** Languages that can back a native module. */
-export type NativeLanguage = 'rust' | 'go' | 'cpp' | 'zig' | 'wasm';
+/**
+ * Languages that can back a native module.
+ *
+ * Re-exported from the registry rather than restated here. The previous local
+ * union advertised languages that did not work, so `language: 'go'` type-checked
+ * and then failed at runtime.
+ */
+export type NativeLanguage = LanguageId;
 
 export interface NativeModule {
   /** Unique identifier for the module */

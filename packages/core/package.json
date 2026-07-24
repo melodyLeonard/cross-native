@@ -31,5 +31,8 @@
   "engines": {
     "node": ">=22.6.0"
   },
-  "react-native": "src/index.ts"
+  "react-native": "src/index.ts",
+  "dependencies": {
+    "@cross-native/languages": "*"
+  }
 }

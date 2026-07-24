@@ -6,6 +6,13 @@
  */
 
 import type { NativeModule } from '../src/types.ts';
+import { NativeBridge } from '../src/bridge/bridge.ts';
+import {
+  LanguageNotReadyError,
+  UnsupportedLanguageError,
+  requireLanguageForFile,
+  getLanguageForFile,
+} from '@cross-native/languages';
 import { allCloseTo, check, checkRejects, section } from './harness.ts';
 import { processDataset } from './reference.ts';
 
@@ -63,6 +70,58 @@ async function testErrors(compute: NativeModule): Promise<void> {
   await checkRejects('unknown function rejects', compute.call('nope', []));
 }
 
+/**
+ * A misconfigured language must fail immediately, naming what is supported —
+ * not somewhere deep in the native layer.
+ */
+async function testLanguageValidation(): Promise<void> {
+  const load = (language: string) =>
+    new NativeBridge().loadModule({
+      name: 'nope',
+      source: 'native/lib.ml',
+      language: language as never,
+    });
+
+  await load('ocaml').then(
+    () => check('unknown language is rejected', false, 'it loaded'),
+    (error: Error) =>
+      check(
+        'unknown language is rejected',
+        error instanceof UnsupportedLanguageError &&
+          error.message.includes('rust'),
+        error.constructor.name
+      )
+  );
+
+  await load('go').then(
+    () => check('planned language is rejected', false, 'it loaded'),
+    (error: Error) =>
+      check(
+        'planned language is rejected',
+        error instanceof LanguageNotReadyError &&
+          error.message.includes('not implemented yet'),
+        error.constructor.name
+      )
+  );
+
+  check(
+    'extensions map to languages',
+    getLanguageForFile('native/compute.rs')?.id === 'rust' &&
+      getLanguageForFile('native/lib.ml') === undefined
+  );
+
+  try {
+    requireLanguageForFile('native/lib.ml');
+    check('unknown extension is rejected', false, 'no error');
+  } catch (error) {
+    check(
+      'unknown extension is rejected',
+      (error as Error).message.includes('.ml'),
+      (error as Error).constructor.name
+    );
+  }
+}
+
 export async function testCorrectness(compute: NativeModule): Promise<void> {
   section('Correctness');
 
@@ -77,4 +136,7 @@ export async function testCorrectness(compute: NativeModule): Promise<void> {
   await testStrings(compute);
   await testNaming(compute);
   await testErrors(compute);
+
+  section('Language validation');
+  await testLanguageValidation();
 }
