@@ -218,15 +218,31 @@ it is the most valuable open optimisation.
 
 ## Supported languages
 
-| Language | Status |
-|----------|--------|
-| **Rust** | ✅ Working — verified end-to-end |
-| **Go** (TinyGo) | 🔵 Planned |
-| **C++** | 🟡 Partial — `SharedLibraryModule` loads a `.dylib`/`.so` exporting `crossnative_call`, untested |
-| **Zig** | 🔵 Planned |
+| Language | Status | Toolchain |
+|----------|--------|-----------|
+| **Rust** | ✅ Working — verified end-to-end, typed `#[crossnative]` | `cargo` + wasm32 target |
+| **Go** | ✅ Working — plain `go` (no TinyGo), `//go:wasmexport` | `go` 1.24+ |
+| **Zig** | ✅ Working — plain `.zig`, AOT beats V8 on the host | `zig` (one portable binary) |
+| **C** | ✅ Working — `zig cc` reactor module | `zig` (bundles clang) |
+| **C++** | ✅ Working — `zig c++`, libc++ links (`std::vector` etc.) | `zig` (bundles clang++) |
 
-The runtime is not Rust-specific: any `wasm32` binary exporting `cn_alloc` and
-`cn_free` will load today. What is missing for other languages is a compile step.
+One `zig` binary covers Zig, C **and** C++ — no emscripten, no wasi-sdk. Go
+needs only a modern `go` (no TinyGo). Each language is a compile *driver* plus a
+registry entry; the runtime itself is not language-specific — any `wasm32`
+module loads, and Go/C/C++ load through WAMR's WASI layer.
+
+Verified through the runtime on the same 3,000,000-iteration float loop (exact
+results across all languages):
+
+| Language | Interpreter | AOT |
+|----------|-------------|-----|
+| Rust | ~506ms | ~30ms |
+| Zig  | 527ms | **29ms** |
+| Go   | 849ms | **50ms** |
+| C / C++ | ~520ms | (same AOT path) |
+
+For comparison V8 runs the same loop in ~45ms — so AOT WebAssembly, off the JS
+thread, lands in the same range as the JIT while keeping the UI live.
 
 ---
 
