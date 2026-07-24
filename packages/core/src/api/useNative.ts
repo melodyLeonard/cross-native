@@ -1,147 +1,99 @@
-import { useEffect, useRef, useCallback } from 'react';
-import {
-  NativeModule,
-  NativeModuleConfig,
-  CallOptions,
-  NativeError,
-  NativeTimeoutError,
-} from '../types.ts';
-import { NativeBridge } from '../bridge/bridge.ts';
+/**
+ * React binding.
+ *
+ * Thin wrapper over {@link createNativeModule}: the hook owns the module's
+ * lifetime, while argument marshalling, plugin hooks and timeouts live in the
+ * framework-independent layer so both entry points behave identically.
+ */
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
+import type { NativeModule, NativeModuleConfig, CallOptions } from '../types.ts';
+import { NativeError } from '../types.ts';
+import { createNativeModule } from './createNativeModule.ts';
+
+type ModulePromiseRef = MutableRefObject<Promise<NativeModule> | null>;
 
 /**
- * Hook to use a native module in a React component.
- * 
+ * Load a native module for the lifetime of a component.
+ *
+ * The returned handle is stable and usable immediately — calls made before
+ * loading finishes wait for it rather than failing.
+ *
  * @example
- * ```typescript
- * const MathModule = useNativeModule({
- *   name: 'math',
- *   source: './native/math.rs',
+ * const compute = useNativeModule({
+ *   name: 'compute',
+ *   source: './native/compute.rs',
  *   language: 'rust',
  * });
- * 
- * // Use in component
- * const result = await MathModule.computeMatrix(data);
- * ```
+ *
+ * const sum = await compute.call('add', [1.5, 2.5]);
  */
 export function useNativeModule(config: NativeModuleConfig): NativeModule {
-  const bridgeRef = useRef<NativeBridge | null>(null);
-  const moduleRef = useRef<NativeModule | null>(null);
+  const loadRef = useRef<Promise<NativeModule> | null>(null);
+  const [functions, setFunctions] = useState<string[]>([]);
 
-  // Initialize bridge on mount
   useEffect(() => {
-    const init = async () => {
-      const bridge = new NativeBridge();
-      await bridge.initialize();
-      bridgeRef.current = bridge;
+    let cancelled = false;
+    const loading = createNativeModule(config);
+    loadRef.current = loading;
 
-      const module = await bridge.loadModule(config);
-      
-      // Apply plugins
-      if (config.plugins) {
-        for (const plugin of config.plugins) {
-          plugin.onModuleLoad?.(module);
-        }
+    loading.then(
+      (module) => {
+        if (!cancelled) setFunctions(module.functions);
+      },
+      () => {
+        // Reported to the caller when they await a call; nothing to do here.
       }
-      
-      moduleRef.current = module;
-    };
+    );
 
-    init();
-
-    // Cleanup
     return () => {
-      if (moduleRef.current) {
-        // Notify plugins
-        config.plugins?.forEach(p => p.onModuleLoad?.(moduleRef.current!));
-        moduleRef.current.dispose();
-      }
-      bridgeRef.current?.dispose();
+      cancelled = true;
+      loadRef.current = null;
+      void loading.then((module) => module.dispose()).catch(() => {});
     };
-  }, [config.name, config.source]);
+  }, [config.name, config.source, config.artifact, config.language]);
 
-  // Create module proxy
-  const module = useCallback(() => {
-    if (!moduleRef.current) {
-      throw new NativeError('Native module not initialized yet');
+  return useMemo(
+    () => createHandle(config, loadRef, functions),
+    [config.name, config.language, functions]
+  );
+}
+
+/**
+ * A handle that defers every operation until the module has finished loading.
+ */
+function createHandle(
+  config: NativeModuleConfig,
+  loadRef: ModulePromiseRef,
+  functions: string[]
+): NativeModule {
+  const resolve = async (): Promise<NativeModule> => {
+    const loading = loadRef.current;
+    if (!loading) {
+      throw new NativeError(`Module '${config.name}' is not mounted`);
     }
-    return moduleRef.current;
-  }, []);
+    return loading;
+  };
 
-  // Return module-like object with automatic plugin hooks
   return {
-    get id() { return config.name; },
-    get language() { return config.language; },
+    id: config.name,
+    language: config.language,
+    functions,
 
-    call: async (method: string, args: unknown[], options?: CallOptions) => {
-      const mod = module();
-      const context = {
-        callId: generateCallId(),
-        moduleId: config.name,
-        methodId: method,
-        args,
-        startTime: Date.now(),
-        options,
-      };
-
-      // Apply beforeCall plugins
-      let modifiedContext = context;
-      for (const plugin of config.plugins || []) {
-        if (plugin.beforeCall) {
-          modifiedContext = await plugin.beforeCall(modifiedContext) as typeof context;
-        }
-      }
-
-      try {
-        // Apply timeout if specified
-        const callPromise = mod.call(method, args, options);
-        const timeoutPromise = options?.timeout
-          ? createTimeoutPromise(options.timeout, config.name, method)
-          : null;
-
-        const result = timeoutPromise
-          ? await Promise.race([callPromise, timeoutPromise])
-          : await callPromise;
-
-        // Apply afterCall plugins
-        for (const plugin of config.plugins || []) {
-          plugin.afterCall?.(modifiedContext, result);
-        }
-
-        return result;
-      } catch (error) {
-        // Apply onError plugins
-        const nativeError = error instanceof Error ? error : new NativeError(String(error));
-        for (const plugin of config.plugins || []) {
-          plugin.onError?.(modifiedContext, nativeError);
-        }
-        throw error;
-      }
+    call: async (method: string, args: unknown[] = [], options?: CallOptions) => {
+      const module = await resolve();
+      return module.call(method, args, options);
     },
 
-    callSync: (method: string, args: unknown[]) => {
-      const mod = module();
-      return mod.callSync(method, args);
+    callSync: () => {
+      throw new NativeError(
+        'Synchronous calls are not available through useNativeModule; use call()'
+      );
     },
 
     dispose: () => {
-      moduleRef.current?.dispose();
-      bridgeRef.current?.dispose();
+      void loadRef.current?.then((module) => module.dispose()).catch(() => {});
     },
-  } as NativeModule;
-}
-
-function generateCallId(): string {
-  return `call-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-}
-
-function createTimeoutPromise(
-  timeout: number,
-  moduleId: string,
-  methodId: string
-): Promise<never> {
-  return new Promise((_, reject) => {
-    setTimeout(() => {
-      reject(new NativeTimeoutError(moduleId, methodId, timeout));
-    }, timeout);
-  });
+  };
 }

@@ -6,8 +6,6 @@
 import type { Plugin, CallContext, PerformanceMetrics } from '../types.ts';
 
 export interface ConsolePluginOptions {
-  /** Log level */
-  level?: 'debug' | 'info' | 'warn' | 'error';
   /** Whether to log call arguments */
   logArgs?: boolean;
   /** Whether to log results */
@@ -18,9 +16,13 @@ export interface ConsolePluginOptions {
   logger?: typeof console.log;
 }
 
+/** Identifies which call a log line belongs to. */
+function prefixFor(context: CallContext): string {
+  return `[CrossNative:${context.moduleId}.${context.methodId}]`;
+}
+
 export function ConsolePlugin(options: ConsolePluginOptions = {}): Plugin {
   const {
-    level = 'debug',
     logArgs = false,
     logResults = false,
     logMetrics = true,
@@ -32,31 +34,26 @@ export function ConsolePlugin(options: ConsolePluginOptions = {}): Plugin {
     version: '1.0.0',
 
     beforeCall: (context: CallContext) => {
-      const prefix = `[CrossNative:${context.moduleId}.${context.methodId}]`;
-      
       if (logArgs) {
-        logger(`${prefix} Call args:`, context.args);
+        logger(`${prefixFor(context)} Call args:`, context.args);
       } else {
-        logger(`${prefix} Calling...`);
+        logger(`${prefixFor(context)} Calling...`);
       }
-
       return context;
     },
 
     afterCall: (context: CallContext, result: unknown) => {
       const duration = Date.now() - context.startTime;
-      const prefix = `[CrossNative:${context.moduleId}.${context.methodId}]`;
-      
+
       if (logResults) {
-        logger(`${prefix} Completed in ${duration}ms:`, result);
+        logger(`${prefixFor(context)} Completed in ${duration}ms:`, result);
       } else {
-        logger(`${prefix} Completed in ${duration}ms`);
+        logger(`${prefixFor(context)} Completed in ${duration}ms`);
       }
     },
 
     onError: (context: CallContext, error: Error) => {
-      const prefix = `[CrossNative:${context.moduleId}.${context.methodId}]`;
-      console.error(`${prefix} Error:`, error.message, error);
+      console.error(`${prefixFor(context)} Error:`, error.message, error);
     },
 
     onMetrics: (metrics: PerformanceMetrics) => {
