@@ -7,12 +7,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "dev": "turbo run dev --parallel",
-    "clean": "turbo run clean && rm -rf node_modules",
+    "build:native": "make -C packages/nitro-module crossnative-host wasm",
+    "test": "npm run test:native && npm run test:core",
+    "test:native": "make -C packages/nitro-module check",
+    "test:core": "npm run build:native && node --experimental-strip-types packages/core/test/run.ts",
+    "clean": "make -C packages/nitro-module clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {

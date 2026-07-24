@@ -41,7 +41,7 @@ WASM3_OBJECTS = $(WASM3_SOURCES:.c=.o)
 CROSSNATIVE_OBJECTS = $(CROSSNATIVE_SOURCES:.cpp=.o)
 
 # The Rust example module, compiled to WASM for the test suite.
-RUST_SOURCE = ../../example-app/native/compute.rs
+RUST_SOURCE = test/fixtures/compute.rs
 WASM_TARGET = build/compute.wasm
 
 all: libcrossnative.a
