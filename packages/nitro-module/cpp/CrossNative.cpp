@@ -41,6 +41,33 @@ NativeResult unwrapEnvelope(const std::string& envelope) {
 
 } // namespace
 
+std::string toEnvelopeJson(const NativeResult& result) {
+  nlohmann::json j;
+  j["success"] = result.success;
+
+  if (!result.success) {
+    j["error"] = result.error;
+    return j.dump();
+  }
+
+  try {
+    auto payload = nlohmann::json::parse(result.data);
+    j["result"] = payload.value("result", nlohmann::json());
+    j["outputs"] = payload.value("outputs", nlohmann::json::array());
+  } catch (const std::exception& e) {
+    j["success"] = false;
+    j["error"] = std::string("Malformed payload: ") + e.what();
+    return j.dump();
+  }
+
+  j["metrics"] = {
+    {"executionTime", result.metrics.executionTime},
+    {"queueTime", result.metrics.queueTime},
+    {"threadId", result.metrics.threadId},
+  };
+  return j.dump();
+}
+
 CrossNative::CrossNative()
   : wasmRuntime_(std::make_unique<WasmRuntime>()),
     threadPool_(std::make_unique<ThreadPool>(
@@ -142,42 +169,108 @@ void CrossNative::registerModule(const std::string& moduleId,
       std::to_string(functionCount) + " exported functions)");
 }
 
+/// Priority and zero-copy flag for one call, with defaults applied.
+CrossNative::CallSettings CrossNative::resolveSettings(
+    const std::optional<CallOptions>& options) {
+  CallSettings settings;
+  if (!options.has_value()) return settings;
+
+  if (options->priority.has_value()) {
+    settings.priority = static_cast<TaskPriority>(options->priority.value());
+  }
+  if (options->zeroCopy.has_value()) {
+    settings.zeroCopy = options->zeroCopy.value();
+  }
+  return settings;
+}
+
+NativeResult CrossNative::executeCall(const std::string& moduleId,
+                                      const std::string& functionName,
+                                      const std::string& argsJson,
+                                      bool zeroCopy) {
+  const auto startTime = std::chrono::high_resolution_clock::now();
+
+  try {
+    std::shared_ptr<NativeModule> module;
+    {
+      std::lock_guard<std::mutex> lock(modulesMutex_);
+      auto it = modules_.find(moduleId);
+      if (it == modules_.end()) {
+        return {.success = false, .error = "Module not found: " + moduleId};
+      }
+      module = it->second;
+    }
+
+    auto envelope = module->call(functionName, argsJson, zeroCopy);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::high_resolution_clock::now() - startTime).count() / 1000.0;
+
+    auto result = unwrapEnvelope(envelope);
+    result.metrics = {
+      .executionTime = elapsed,
+      .queueTime = 0,
+      .threadId = std::to_string(
+          std::hash<std::thread::id>{}(std::this_thread::get_id())),
+    };
+    return result;
+  } catch (const std::exception& e) {
+    return {.success = false, .error = std::string("Exception: ") + e.what()};
+  }
+}
+
 std::future<NativeResult> CrossNative::callFunction(
     const std::string& moduleId,
     const std::string& functionName,
     const std::string& argsJson,
     const std::optional<CallOptions>& options) {
-  TaskPriority priority = TaskPriority::NORMAL;
-  int timeoutMs = 30000;
-  bool zeroCopy = false;
-  if (options.has_value()) {
-    if (options->priority.has_value()) priority = static_cast<TaskPriority>(options->priority.value());
-    if (options->timeout.has_value()) timeoutMs = options->timeout.value();
-    if (options->zeroCopy.has_value()) zeroCopy = options->zeroCopy.value();
-  }
-  return threadPool_->enqueue(priority, [this, moduleId, functionName, argsJson, zeroCopy]() -> NativeResult {
-    auto startTime = std::chrono::high_resolution_clock::now();
-    try {
-      std::shared_ptr<NativeModule> module;
-      {
-        std::lock_guard<std::mutex> lock(modulesMutex_);
-        auto it = modules_.find(moduleId);
-        if (it == modules_.end()) {
-          return {.success = false, .error = "Module not found: " + moduleId};
-        }
-        module = it->second;
-      }
-      auto envelope = module->call(functionName, argsJson, zeroCopy);
-      auto endTime = std::chrono::high_resolution_clock::now();
-      auto executionTime = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() / 1000.0;
+  const auto settings = resolveSettings(options);
 
-      auto result = unwrapEnvelope(envelope);
-      result.metrics = {.executionTime = executionTime, .queueTime = 0, .threadId = std::to_string(std::hash<std::thread::id>{}(std::this_thread::get_id()))};
-      return result;
-    } catch (const std::exception& e) {
-      return {.success = false, .error = std::string("Exception: ") + e.what()};
-    }
-  });
+  return threadPool_->enqueue(
+      settings.priority,
+      [this, moduleId, functionName, argsJson, zeroCopy = settings.zeroCopy] {
+        return executeCall(moduleId, functionName, argsJson, zeroCopy);
+      });
+}
+
+void CrossNative::callFunctionAsync(
+    const std::string& moduleId,
+    const std::string& functionName,
+    const std::string& argsJson,
+    const std::optional<CallOptions>& options,
+    std::function<void(NativeResult)> callback) {
+  const auto settings = resolveSettings(options);
+
+  // The callback runs on the worker that did the work, so no thread has to sit
+  // waiting on a future just to deliver the result.
+  threadPool_->enqueue(
+      settings.priority,
+      [this, moduleId, functionName, argsJson,
+       zeroCopy = settings.zeroCopy, callback = std::move(callback)] {
+        callback(executeCall(moduleId, functionName, argsJson, zeroCopy));
+      });
+}
+
+void CrossNative::loadModuleFromBytesAsync(
+    const std::string& moduleId,
+    const std::string& language,
+    std::vector<uint8_t> wasmBytes,
+    std::function<void(bool, std::string)> callback) {
+  threadPool_->enqueue(
+      TaskPriority::HIGH,
+      [this, moduleId, language, bytes = std::move(wasmBytes),
+       callback = std::move(callback)] {
+        try {
+          if (!isWasmLanguage(language)) {
+            throw std::runtime_error(
+                "Only WASM languages can be loaded from bytes, got: " + language);
+          }
+          installWasmModule(moduleId, language, bytes);
+          callback(true, "");
+        } catch (const std::exception& e) {
+          log(LogLevel::ERROR, "Failed to load module " + moduleId + ": " + e.what());
+          callback(false, e.what());
+        }
+      });
 }
 
 NativeResult CrossNative::callFunctionSync(
