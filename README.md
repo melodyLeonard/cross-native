@@ -36,15 +36,18 @@ const product = await compute.call('matrix_multiply', [a, b, outBuffer(n * n), n
 
 | Component | Status |
 |-----------|--------|
-| C++ core — wasm3 runtime, thread pool, argument marshalling | ✅ Working, 17 checks |
+| C++ core — wasm3 runtime, thread pool, argument marshalling | ✅ Working, 21 checks |
 | Rust → WASM → call → result | ✅ Working, verified end-to-end |
 | TypeScript API — `createNativeModule`, buffers, plugins | ✅ Working, 12 checks |
 | Node development backend | ✅ Working |
-| JSI / Nitro on-device backend | ❌ Not wired up — needs nitrogen codegen and a pod/gradle build |
-| React Native integration | ❌ No example app; the library cannot be used in an RN app yet |
+| JSI backend | ✅ Working |
+| **iOS** | ✅ Working — verified on an iOS 26 simulator with RN 0.86 |
+| **Android** | ❌ Not started — no JNI glue or CMake build yet |
 | npm release | ❌ Not published |
 
-**The engine works and is tested. The on-device binding is the remaining gap.**
+It runs in a real React Native app on iOS today: a Rust module compiled to
+WASM, executing on a worker thread, with the UI staying responsive throughout.
+Android is the next platform.
 
 ---
 
@@ -71,6 +74,33 @@ npm run test:core     # TypeScript API (packages/core/test)
 
 ---
 
+## Using it in a React Native app
+
+```bash
+npm install react-native-cross-native
+cd ios && pod install
+```
+
+Metro has no loader for `.wasm` and asset resolution differs by platform, so
+embed the module in the bundle and pass the bytes:
+
+```typescript
+import { createNativeModule, outBuffer } from 'react-native-cross-native';
+
+const compute = await createNativeModule({
+  name: 'compute',
+  source: './native/compute.rs',
+  language: 'rust',
+  bytes: myWasmBytes,   // Uint8Array
+});
+
+const sum = await compute.call('add', [1.5, 2.5]);
+```
+
+`createNativeModule` installs the native proxy on first use. If the app is
+linked from a sibling checkout rather than node_modules, add the library root
+to Metro's `watchFolders`.
+
 ## How it works
 
 ```
@@ -78,7 +108,7 @@ JavaScript
     │
     ▼  createNativeModule / useNativeModule
 Backend
-    ├── JSIBackend        on device, in-process (not yet wired up)
+    ├── JSIBackend        on device, in-process
     └── NodeHostBackend   development, over stdio
     │
     ▼
@@ -89,6 +119,10 @@ CrossNative (C++)
             ▼
         compute.wasm
 ```
+
+On device, `CrossNativeModule` reaches the JS runtime through
+`RCTCallInvokerModule`, whose `CallInvoker` doubles as the dispatcher that
+settles promises back on the JS thread.
 
 Each module gets its own wasm3 runtime, so modules are isolated and can run
 concurrently. wasm3 runtimes are not thread-safe, so calls into a single module
@@ -197,11 +231,14 @@ packages/
 
 ## What's next
 
-1. **Nitro/JSI binding** — nitrogen codegen plus the pod and gradle wiring, so
-   the library can be used from a real app. This is the blocker for everything
-   else.
-2. **Measure against Hermes** — the comparison that actually decides whether the
-   WASM approach is worth it on device.
+1. **Android** — JNI glue and a CMake build. The C++ core and the JSI layer are
+   already platform-independent; only the module that installs the proxy is
+   iOS-specific.
+2. **Measure against Hermes** — a first data point: 3,000,000 iterations of the
+   compute loop took 10.4s in a Debug simulator build, against 0.5s in Node.
+   Debug pods are unoptimised and the simulator is not a phone, so this is not
+   yet a fair number — but it does mean the interpreter is the bottleneck, and
+   it deserves a proper Release-build measurement on hardware.
 3. **Cheaper argument transfer** — replace JSON marshalling for large arrays.
 4. **A CLI** — compiling `.rs` to `.wasm` is currently done by the Makefile.
 
