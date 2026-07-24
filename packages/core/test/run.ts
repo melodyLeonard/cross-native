@@ -34,7 +34,7 @@ async function testNonBlocking(compute: NativeModule): Promise<void> {
   const interval = setInterval(() => ticks++, 1);
 
   const start = performance.now();
-  await compute.call('benchmark_heavy', [3_000_000]);
+  await compute.fns.benchmark_heavy(3_000_000);
   const elapsed = performance.now() - start;
 
   clearInterval(interval);
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
   const compute = await createNativeModule(
     {
       name: 'compute',
-      source: 'packages/nitro-module/test/fixtures/compute.rs',
+      source: 'packages/nitro-module/test/fixtures/compute/src/lib.rs',
       artifact: WASM_FIXTURE,
       language: 'rust',
       plugins: [PerformancePlugin({ slowThresholdMs: 250 })],

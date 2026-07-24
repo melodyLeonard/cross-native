@@ -29,6 +29,8 @@ export { NativeBridge, type BridgeOptions } from './bridge/bridge.ts';
 export { BackendError, type Backend, type CallResponse } from './bridge/backend.ts';
 export { JSIBackend, registerJSIInstaller, isJSIAvailable } from './bridge/jsi.ts';
 
+export { buildCallables, toCamelCase } from './bridge/callables.ts';
+
 // Array arguments
 export {
   inBuffer,
@@ -59,6 +61,9 @@ export type {
   NativeModuleConfig,
   NativeFunction,
   NativeLanguage,
+  FunctionSignature,
+  SignatureParam,
+  NativeFunction,
   CallOptions,
   Plugin,
   CallContext,

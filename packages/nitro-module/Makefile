@@ -40,8 +40,10 @@ CROSSNATIVE_SOURCES = \
 WASM3_OBJECTS = $(WASM3_SOURCES:.c=.o)
 CROSSNATIVE_OBJECTS = $(CROSSNATIVE_SOURCES:.cpp=.o)
 
-# The Rust example module, compiled to WASM for the test suite.
-RUST_SOURCE = test/fixtures/compute.rs
+# The Rust test fixture. A cargo crate, because #[crossnative] is a proc macro.
+FIXTURE_DIR = test/fixtures/compute
+FIXTURE_SOURCES = $(wildcard $(FIXTURE_DIR)/src/*.rs) $(FIXTURE_DIR)/Cargo.toml
+FIXTURE_WASM = $(FIXTURE_DIR)/target/wasm32-unknown-unknown/release/compute.wasm
 WASM_TARGET = build/compute.wasm
 
 all: libcrossnative.a
@@ -69,11 +71,11 @@ crossnative-host: host/host_main.cpp libcrossnative.a
 
 host: crossnative-host
 
-# Compile the Rust example module to WASM
-$(WASM_TARGET): $(RUST_SOURCE)
+# Compile the Rust fixture to WASM
+$(WASM_TARGET): $(FIXTURE_SOURCES)
+	cd $(FIXTURE_DIR) && cargo build --target wasm32-unknown-unknown --release
 	@mkdir -p build
-	rustc --target wasm32-unknown-unknown --crate-type=cdylib \
-		-O -C strip=symbols $< -o $@
+	cp $(FIXTURE_WASM) $@
 
 wasm: $(WASM_TARGET)
 

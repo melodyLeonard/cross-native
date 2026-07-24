@@ -11,7 +11,7 @@
  * interface is shared.
  */
 
-import type { CallOptions } from '../types.ts';
+import type { CallOptions, FunctionSignature } from '../types.ts';
 
 /** What a native call returns, before ergonomic unwrapping. */
 export interface CallResponse {
@@ -38,6 +38,12 @@ export type ModuleSource =
   | { kind: 'path'; path: string }
   | { kind: 'bytes'; bytes: Uint8Array };
 
+/** What a backend reports after loading a module. */
+export interface LoadedModule {
+  functions: string[];
+  manifest: FunctionSignature[];
+}
+
 export interface Backend {
   /** Human-readable backend name, for diagnostics. */
   readonly name: string;
@@ -45,9 +51,9 @@ export interface Backend {
   /**
    * Load a compiled module.
    *
-   * @returns The module's exported function names
+   * @returns Its exported names and declared signatures
    */
-  load(moduleId: string, language: string, source: ModuleSource): Promise<string[]>;
+  load(moduleId: string, language: string, source: ModuleSource): Promise<LoadedModule>;
 
   /** Call a function. Arguments are already in wire format. */
   call(

@@ -317,6 +317,12 @@ std::vector<std::string> CrossNative::getModuleFunctions(const std::string& modu
   return {};
 }
 
+std::string CrossNative::getModuleManifest(const std::string& moduleId) {
+  std::lock_guard<std::mutex> lock(modulesMutex_);
+  auto it = modules_.find(moduleId);
+  return it != modules_.end() ? it->second->getManifest() : "[]";
+}
+
 std::string CrossNative::createSharedBuffer(size_t size) {
   std::lock_guard<std::mutex> lock(buffersMutex_);
   std::string bufferId = "buffer_" + std::to_string(nextBufferId_++);

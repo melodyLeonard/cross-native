@@ -154,6 +154,63 @@ json readElem(const uint8_t* src, ElemKind kind) {
   return nullptr;
 }
 
+// --- Signatures --------------------------------------------------------------
+// Modules built with #[crossnative] describe themselves: for every exported
+// function there is a `__cn_meta_<name>` export returning JSON with the
+// signature the author actually wrote. That is what lets the host marshal
+// arrays and strings without the caller spelling out pointers and lengths.
+
+/// A parameter or return type, as named in the metadata.
+struct ValueType {
+  enum class Shape { Void, Scalar, Vector, Text };
+
+  Shape shape = Shape::Void;
+  ElemKind elem = ElemKind::F64; // meaningful for Vector
+  size_t elemSize = 0;
+};
+
+/// Parse "f64", "vec<f64>", "string" or "void".
+bool parseValueType(const std::string& text, ValueType& out) {
+  if (text == "void") {
+    out.shape = ValueType::Shape::Void;
+    return true;
+  }
+  if (text == "string") {
+    out.shape = ValueType::Shape::Text;
+    return true;
+  }
+
+  constexpr const char* kVecPrefix = "vec<";
+  if (text.rfind(kVecPrefix, 0) == 0 && text.back() == '>') {
+    const std::string elem = text.substr(4, text.size() - 5);
+    if (!parseElemKind(elem, out.elem, out.elemSize)) return false;
+    out.shape = ValueType::Shape::Vector;
+    return true;
+  }
+
+  ElemKind kind;
+  size_t size = 0;
+  if (!parseElemKind(text, kind, size)) return false;
+
+  out.shape = ValueType::Shape::Scalar;
+  out.elem = kind;
+  out.elemSize = size;
+  return true;
+}
+
+/// One function's declared signature.
+struct Signature {
+  std::vector<std::string> paramNames;
+  std::vector<ValueType> params;
+  ValueType returns;
+};
+
+/// Split a packed handle into a pointer and an element count.
+void unpackHandle(uint64_t handle, uint32_t& ptr, uint32_t& count) {
+  ptr = static_cast<uint32_t>(handle >> 32);
+  count = static_cast<uint32_t>(handle & 0xFFFFFFFFu);
+}
+
 // --- Loaded modules ----------------------------------------------------------
 
 /// One module loaded into its own runtime.
@@ -162,6 +219,11 @@ struct ModuleEntry {
   std::vector<uint8_t> bytes;
   IM3Runtime runtime = nullptr;
   std::vector<std::string> functions;
+  /// Declared signatures, by function name. Empty for modules built without
+  /// the #[crossnative] macro, which fall back to the raw buffer protocol.
+  std::unordered_map<std::string, Signature> signatures;
+  /// The metadata as JSON, handed to JavaScript so it can build typed calls.
+  std::string manifestJson = "[]";
   /// wasm3 runtimes are not thread-safe; serialise calls into this module.
   std::mutex callMutex;
 
@@ -211,6 +273,88 @@ void wasmFree(ModuleEntry& entry, uint32_t ptr, uint32_t size) {
   int32_t sizeArg = static_cast<int32_t>(size);
   const void* args[2] = {&ptrArg, &sizeArg};
   m3_Call(freeFn, 2, args);
+}
+
+// --- Reading the manifest ----------------------------------------------------
+
+constexpr const char* kMetaPrefix = "__cn_meta_";
+
+/// Copy a packed (pointer, length) buffer out of WASM memory, then release it.
+bool readPackedBytes(ModuleEntry& entry, uint64_t handle, std::string& out) {
+  uint32_t ptr = 0;
+  uint32_t length = 0;
+  unpackHandle(handle, ptr, length);
+
+  if (ptr == 0 || length == 0) {
+    out.clear();
+    return true;
+  }
+
+  uint32_t memSize = 0;
+  const uint8_t* mem = m3_GetMemory(entry.runtime, &memSize, 0);
+  if (!mem || ptr + length > memSize) return false;
+
+  out.assign(reinterpret_cast<const char*>(mem + ptr), length);
+  wasmFree(entry, ptr, length); // the shim allocated this for us
+  return true;
+}
+
+/// Call a metadata export and return the JSON it points at.
+bool readMetadata(ModuleEntry& entry, const std::string& metaName, std::string& out) {
+  IM3Function func = nullptr;
+  if (m3_FindFunction(&func, entry.runtime, metaName.c_str()) || !func) return false;
+  if (m3_Call(func, 0, nullptr)) return false;
+
+  int64_t packed = 0;
+  const void* rets[1] = {&packed};
+  if (m3_GetResults(func, 1, rets)) return false;
+
+  return readPackedBytes(entry, static_cast<uint64_t>(packed), out);
+}
+
+/// Turn one metadata document into a Signature.
+bool parseSignature(const json& doc, Signature& out) {
+  if (!doc.contains("params") || !doc["params"].is_array()) return false;
+
+  for (const auto& param : doc["params"]) {
+    ValueType type;
+    if (!parseValueType(param.value("type", ""), type)) return false;
+    out.paramNames.push_back(param.value("name", ""));
+    out.params.push_back(type);
+  }
+
+  return parseValueType(doc.value("returns", "void"), out.returns);
+}
+
+/**
+ * Collect every `__cn_meta_*` export into the module's signature table.
+ *
+ * Modules without the macro simply have none, and keep working through the
+ * raw buffer protocol.
+ */
+void readManifest(ModuleEntry& entry) {
+  json manifest = json::array();
+
+  for (const auto& exported : entry.functions) {
+    if (exported.rfind(kMetaPrefix, 0) != 0) continue;
+
+    std::string document;
+    if (!readMetadata(entry, exported, document) || document.empty()) continue;
+
+    try {
+      auto doc = json::parse(document);
+      Signature signature;
+      if (!parseSignature(doc, signature)) continue;
+
+      entry.signatures[doc.value("name", "")] = std::move(signature);
+      manifest.push_back(std::move(doc));
+    } catch (const json::exception&) {
+      // A malformed entry only costs that one function its typed calling
+      // convention; the rest of the module stays usable.
+    }
+  }
+
+  entry.manifestJson = manifest.dump();
 }
 
 // --- Argument binding --------------------------------------------------------
@@ -292,6 +436,16 @@ public:
   ArgumentBinder& operator=(const ArgumentBinder&) = delete;
 
   bool bind(IM3Function func, const json& args, std::string& error);
+
+  /**
+   * Bind arguments using a declared signature.
+   *
+   * Callers pass ordinary values — numbers, arrays, strings — and each array
+   * or string expands into the pointer and length pair the shim expects.
+   */
+  bool bindTyped(IM3Function func, const json& args, const Signature& signature,
+                 std::string& error);
+
   bool readOutputs(json& outputs, std::string& error) const;
 
   uint32_t count() const { return static_cast<uint32_t>(pointers_.size()); }
@@ -300,6 +454,10 @@ public:
 private:
   bool bindScalar(const json& arg, M3ValueType type, void* slot, std::string& error);
   bool bindBuffer(const json& arg, M3ValueType type, void* slot, std::string& error);
+
+  /// Copy bytes into WASM memory and fill the pointer and length slots.
+  bool bindBytes(const uint8_t* data, size_t byteSize, size_t count,
+                 void* ptrSlot, void* lenSlot, std::string& error);
 
   ModuleEntry& entry_;
   /// Pre-sized so it never reallocates while pointers_ points into it.
@@ -335,6 +493,113 @@ bool ArgumentBinder::bind(IM3Function func, const json& args, std::string& error
       return false;
     }
   }
+  return true;
+}
+
+bool ArgumentBinder::bindBytes(const uint8_t* data, size_t byteSize, size_t count,
+                               void* ptrSlot, void* lenSlot, std::string& error) {
+  uint32_t ptr = 0;
+  if (!wasmAlloc(entry_, static_cast<uint32_t>(byteSize), ptr, error)) return false;
+
+  // Record it so the destructor frees it even if a later argument fails.
+  allocations_.push_back(
+      {ptr, static_cast<uint32_t>(byteSize), count, 1, ElemKind::U8, false});
+
+  // Fetch memory after allocating — growth can move the base pointer.
+  uint32_t memSize = 0;
+  uint8_t* mem = m3_GetMemory(entry_.runtime, &memSize, 0);
+  if (!mem || ptr + byteSize > memSize) {
+    error = "WASM memory access out of bounds";
+    return false;
+  }
+
+  std::memcpy(mem + ptr, data, byteSize);
+  *reinterpret_cast<int32_t*>(ptrSlot) = static_cast<int32_t>(ptr);
+  *reinterpret_cast<int32_t*>(lenSlot) = static_cast<int32_t>(count);
+  return true;
+}
+
+bool ArgumentBinder::bindTyped(IM3Function func, const json& args,
+                               const Signature& signature, std::string& error) {
+  if (args.size() != signature.params.size()) {
+    error = "expects " + std::to_string(signature.params.size()) +
+            " argument(s), got " + std::to_string(args.size());
+    return false;
+  }
+
+  // Arrays and strings occupy two slots each: pointer and length.
+  const uint32_t slotCount = m3_GetArgCount(func);
+  store_.assign(slotCount ? slotCount : 1, 0);
+  pointers_.assign(slotCount ? slotCount : 1, nullptr);
+  for (uint32_t i = 0; i < slotCount; ++i) pointers_[i] = &store_[i];
+
+  uint32_t slot = 0;
+  for (size_t i = 0; i < signature.params.size(); ++i) {
+    const ValueType& type = signature.params[i];
+    const json& arg = args[i];
+    const std::string where = "argument " + std::to_string(i) + " ('" +
+                              signature.paramNames[i] + "')";
+
+    if (slot >= slotCount) {
+      error = where + ": more arguments than the module expects";
+      return false;
+    }
+
+    std::string reason;
+    bool ok = false;
+
+    switch (type.shape) {
+      case ValueType::Shape::Scalar:
+        ok = bindScalar(arg, m3_GetArgType(func, slot), &store_[slot], reason);
+        slot += 1;
+        break;
+
+      case ValueType::Shape::Vector: {
+        if (!arg.is_array()) {
+          error = where + ": expected an array";
+          return false;
+        }
+        if (slot + 1 >= slotCount) {
+          error = where + ": module signature is missing a length parameter";
+          return false;
+        }
+        std::vector<uint8_t> bytes(arg.size() * type.elemSize);
+        for (size_t e = 0; e < arg.size(); ++e) {
+          writeElem(bytes.data() + e * type.elemSize, type.elem, arg[e]);
+        }
+        ok = bindBytes(bytes.data(), bytes.size(), arg.size(), &store_[slot],
+                       &store_[slot + 1], reason);
+        slot += 2;
+        break;
+      }
+
+      case ValueType::Shape::Text: {
+        if (!arg.is_string()) {
+          error = where + ": expected a string";
+          return false;
+        }
+        if (slot + 1 >= slotCount) {
+          error = where + ": module signature is missing a length parameter";
+          return false;
+        }
+        const std::string text = arg.get<std::string>();
+        ok = bindBytes(reinterpret_cast<const uint8_t*>(text.data()), text.size(),
+                       text.size(), &store_[slot], &store_[slot + 1], reason);
+        slot += 2;
+        break;
+      }
+
+      case ValueType::Shape::Void:
+        error = where + ": void is not a valid parameter type";
+        return false;
+    }
+
+    if (!ok) {
+      error = where + ": " + reason;
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -453,6 +718,63 @@ bool readReturnValue(IM3Function func, json& out, std::string& error) {
   return true;
 }
 
+/// Read a declared return value, materialising arrays and strings from the
+/// packed handle the shim returns.
+bool readTypedReturn(ModuleEntry& entry, IM3Function func, const ValueType& returns,
+                     json& out, std::string& error) {
+  if (returns.shape == ValueType::Shape::Void) {
+    out = nullptr;
+    return true;
+  }
+  if (returns.shape == ValueType::Shape::Scalar) {
+    return readReturnValue(func, out, error);
+  }
+
+  int64_t packed = 0;
+  const void* rets[1] = {&packed};
+  if (M3Result r = m3_GetResults(func, 1, rets)) {
+    error = std::string("failed to read return value: ") + r;
+    return false;
+  }
+
+  uint32_t ptr = 0;
+  uint32_t count = 0;
+  unpackHandle(static_cast<uint64_t>(packed), ptr, count);
+
+  if (returns.shape == ValueType::Shape::Text) {
+    std::string text;
+    if (!readPackedBytes(entry, static_cast<uint64_t>(packed), text)) {
+      error = "returned string is out of bounds";
+      return false;
+    }
+    out = text;
+    return true;
+  }
+
+  // Vector: read `count` elements, then hand the buffer back to the module.
+  if (ptr == 0 || count == 0) {
+    out = json::array();
+    return true;
+  }
+
+  uint32_t memSize = 0;
+  const uint8_t* mem = m3_GetMemory(entry.runtime, &memSize, 0);
+  const size_t byteSize = count * returns.elemSize;
+  if (!mem || ptr + byteSize > memSize) {
+    error = "returned array is out of bounds";
+    return false;
+  }
+
+  json values = json::array();
+  for (uint32_t i = 0; i < count; ++i) {
+    values.push_back(readElem(mem + ptr + i * returns.elemSize, returns.elem));
+  }
+  wasmFree(entry, ptr, static_cast<uint32_t>(byteSize));
+
+  out = std::move(values);
+  return true;
+}
+
 /// Describe a failed m3_Call, including trap detail when wasm3 has some.
 std::string describeCallFailure(IM3Runtime runtime, M3Result result) {
   M3ErrorInfo info;
@@ -539,6 +861,7 @@ bool WasmRuntime::loadModule(const std::string& moduleId,
 
   m3_RunStart(module); // optional; Rust cdylib modules usually have no start
   entry->functions = parseExportedFunctions(entry->bytes);
+  readManifest(*entry);
 
   {
     std::lock_guard<std::mutex> lock(pImpl->modulesMutex);
@@ -581,8 +904,16 @@ std::string WasmRuntime::call(const std::string& moduleId,
     // Owns the WASM-side allocations until the call has been read back.
     ArgumentBinder binder(*entry);
 
+    // Modules built with #[crossnative] describe their signatures, so plain
+    // values marshal themselves. Anything else uses the raw buffer protocol.
+    auto declared = entry->signatures.find(functionName);
+    const bool typed = declared != entry->signatures.end();
+
     std::string error;
-    if (!binder.bind(func, args, error)) {
+    const bool bound = typed
+        ? binder.bindTyped(func, args, declared->second, error)
+        : binder.bind(func, args, error);
+    if (!bound) {
       return errorResult("Cannot call '" + functionName + "': " + error).dump();
     }
 
@@ -591,7 +922,10 @@ std::string WasmRuntime::call(const std::string& moduleId,
     }
 
     json result;
-    if (!readReturnValue(func, result, error)) {
+    const bool read = typed
+        ? readTypedReturn(*entry, func, declared->second.returns, result, error)
+        : readReturnValue(func, result, error);
+    if (!read) {
       return errorResult(error).dump();
     }
 
@@ -618,6 +952,11 @@ std::string WasmRuntime::call(const std::string& moduleId,
 std::vector<std::string> WasmRuntime::getFunctions(const std::string& moduleId) const {
   auto entry = pImpl->find(moduleId);
   return entry ? entry->functions : std::vector<std::string>{};
+}
+
+std::string WasmRuntime::getManifest(const std::string& moduleId) const {
+  auto entry = pImpl->find(moduleId);
+  return entry ? entry->manifestJson : "[]";
 }
 
 bool WasmRuntime::isLoaded(const std::string& moduleId) const {

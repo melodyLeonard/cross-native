@@ -57,11 +57,6 @@ void expectNumber(CrossNative& cn, const std::string& name, const std::string& f
                         ", got " + detail.str());
 }
 
-/// Build a buffer argument: {"in"|"out"|"inout": ..., "type": "f64"}.
-json buffer(const char* mode, const json& value) {
-  return json{{mode, value}, {"type", "f64"}};
-}
-
 void testModuleLoading(CrossNative& cn) {
   report("reports the module as loaded", cn.isModuleLoaded(kModuleId));
 
@@ -120,51 +115,53 @@ void testErrorHandling(CrossNative& cn) {
   report("argument count mismatch reports failure", !badArity.success, badArity.error);
 }
 
-void testInputBuffers(CrossNative& cn) {
-  json args = json::array();
-  args.push_back(buffer("in", json::array({1.0, 2.0, 3.0, 4.0, 5.0})));
-  args.push_back(5);
+void testArrayArguments(CrossNative& cn) {
+  // The array is the argument. No pointer, no length, no buffer wrapper.
+  json args = json::array({json::array({1.0, 2.0, 3.0, 4.0, 5.0})});
   expectNumber(cn, "sum_array([1..5]) == 15", "sum_array", args, 15.0);
 }
 
-void testOutputBuffers(CrossNative& cn) {
-  // 2x2 identity * [[1,2],[3,4]] == [[1,2],[3,4]]
-  json args = json::array();
-  args.push_back(buffer("in", json::array({1.0, 0.0, 0.0, 1.0})));
-  args.push_back(buffer("in", json::array({1.0, 2.0, 3.0, 4.0})));
-  args.push_back(buffer("out", 4));
-  args.push_back(2);
+void testArrayReturns(CrossNative& cn) {
+  // 2x2 identity * [[1,2],[3,4]] == [[1,2],[3,4]], returned directly.
+  json args = json::array({
+    json::array({1.0, 0.0, 0.0, 1.0}),
+    json::array({1.0, 2.0, 3.0, 4.0}),
+  });
 
-  auto payload = callOk(cn, "matrix_multiply writes an output buffer",
-                        "matrix_multiply", args);
+  auto payload = callOk(cn, "matrix_multiply returns an array", "matrix_multiply", args);
   if (!payload) return;
 
-  auto outputs = (*payload)["outputs"];
-  const bool ok = outputs.size() == 1 &&
-                  outputs[0] == json::array({1.0, 2.0, 3.0, 4.0});
-  report("matrix_multiply identity gives back the input", ok, ok ? "" : outputs.dump());
+  const json& result = (*payload)["result"];
+  const bool ok = result == json::array({1.0, 2.0, 3.0, 4.0});
+  report("matrix_multiply identity gives back the input", ok, result.dump());
 }
 
-void testInOutBuffers(CrossNative& cn) {
-  // process_dataset mutates in place: verify against the same formula in C++.
-  const std::vector<double> input = {1.0, 2.0, 3.0, 4.0};
-
-  json args = json::array();
-  args.push_back(buffer("inout", input));
-  args.push_back(static_cast<int>(input.size()));
-
-  auto payload = callOk(cn, "process_dataset mutates in place", "process_dataset", args);
+void testStrings(CrossNative& cn) {
+  auto payload = callOk(cn, "greet round-trips a string", "greet",
+                        json::array({"world"}));
   if (!payload) return;
 
-  auto outputs = (*payload)["outputs"];
-  bool ok = outputs.size() == 1 && outputs[0].size() == input.size();
+  const json& result = (*payload)["result"];
+  const bool ok = result.is_string() && result.get<std::string>() == "Hello, world!";
+  report("greet(\"world\") == \"Hello, world!\"", ok, result.dump());
+}
+
+void testTransform(CrossNative& cn) {
+  const std::vector<double> input = {1.0, 2.0, 3.0, 4.0};
+
+  auto payload = callOk(cn, "process_dataset returns a transformed array",
+                        "process_dataset", json::array({input}));
+  if (!payload) return;
+
+  const json& result = (*payload)["result"];
+  bool ok = result.is_array() && result.size() == input.size();
   for (size_t i = 0; ok && i < input.size(); ++i) {
     const double x = input[i];
     const double expected = std::sin(std::sqrt(x)) * std::cos(x) + std::log1p(x);
-    ok = nearlyEqual(outputs[0][i].get<double>(), expected);
+    ok = nearlyEqual(result[i].get<double>(), expected);
   }
 
-  report("process_dataset matches the reference formula", ok, ok ? "" : outputs.dump());
+  report("process_dataset matches the reference formula", ok, ok ? "" : result.dump());
 }
 
 void testConcurrency(CrossNative& cn) {
@@ -200,11 +197,7 @@ void testPerformance(CrossNative& cn) {
     b.push_back(static_cast<double>(i % 5));
   }
 
-  json args = json::array();
-  args.push_back(buffer("in", a));
-  args.push_back(buffer("in", b));
-  args.push_back(buffer("out", n * n));
-  args.push_back(n);
+  json args = json::array({a, b});
 
   const auto start = std::chrono::high_resolution_clock::now();
   auto r = cn.callFunction(kModuleId, "matrix_multiply", args.dump()).get();
@@ -253,10 +246,11 @@ int main(int argc, char** argv) {
   testScalars(cn);
   testErrorHandling(cn);
 
-  section("Array arguments (WASM linear memory)");
-  testInputBuffers(cn);
-  testOutputBuffers(cn);
-  testInOutBuffers(cn);
+  section("Typed arguments (from the module's own manifest)");
+  testArrayArguments(cn);
+  testArrayReturns(cn);
+  testTransform(cn);
+  testStrings(cn);
 
   testConcurrency(cn);
   testPerformance(cn);

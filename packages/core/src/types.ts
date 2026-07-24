@@ -2,6 +2,32 @@
  * Core type definitions for CrossNative
  */
 
+/** One parameter of a declared signature. */
+export interface SignatureParam {
+  name: string;
+  /** Wire type: "f64", "u32", "vec<f64>", "string", ... */
+  type: string;
+}
+
+/**
+ * A function's real signature, as declared by the module itself.
+ *
+ * Emitted by `#[crossnative]` and read at load time, which is what lets arrays
+ * and strings marshal themselves.
+ */
+export interface FunctionSignature {
+  name: string;
+  params: SignatureParam[];
+  returns: string;
+}
+
+/** A native function, callable with ordinary JavaScript values. */
+export interface NativeFunction {
+  (...args: unknown[]): Promise<unknown>;
+  /** The declared signature, for tooling and diagnostics. */
+  readonly signature?: FunctionSignature;
+}
+
 /** Languages that can back a native module. */
 export type NativeLanguage = 'rust' | 'go' | 'cpp' | 'zig' | 'wasm';
 
@@ -14,6 +40,17 @@ export interface NativeModule {
 
   /** Names of the functions this module exports */
   functions: string[];
+
+  /** Declared signatures, empty if the module carries no metadata */
+  manifest: FunctionSignature[];
+
+  /**
+   * The module's functions, by name.
+   *
+   * Available under both the original Rust name and its camelCase form:
+   * `fns.process_dataset` and `fns.processDataset` are the same function.
+   */
+  fns: Record<string, NativeFunction>;
 
   /** Call a native function */
   call(method: string, args?: unknown[], options?: CallOptions): Promise<unknown>;

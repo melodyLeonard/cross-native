@@ -122,6 +122,7 @@ void Host::handleLoad(const json& request, const json& id) {
   r["success"] = loaded;
   if (loaded) {
     r["functions"] = cn_.getModuleFunctions(moduleId);
+    r["manifest"] = json::parse(cn_.getModuleManifest(moduleId));
   } else {
     r["error"] = "Failed to load module '" + moduleId + "' from " + path;
   }

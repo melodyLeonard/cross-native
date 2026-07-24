@@ -20,6 +20,10 @@ std::vector<std::string> WasmModule::getFunctions() const {
   return runtime_ ? runtime_->getFunctions(id_) : std::vector<std::string>{};
 }
 
+std::string WasmModule::getManifest() const {
+  return runtime_ ? runtime_->getManifest(id_) : "[]";
+}
+
 std::string WasmModule::call(const std::string& functionName,
                              const std::string& argsJson,
                              bool /*zeroCopy*/) {

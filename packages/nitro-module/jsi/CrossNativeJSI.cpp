@@ -291,6 +291,12 @@ jsi::Object buildProxy(jsi::Runtime& rt, const std::shared_ptr<Installation>& in
             toString(rt, a, n, 0, "moduleId")));
       });
 
+  defineFunction(rt, proxy, "getModuleManifest", 1,
+      [install](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* a, size_t n) {
+        return jsi::String::createFromUtf8(rt, install->core->getModuleManifest(
+            toString(rt, a, n, 0, "moduleId")));
+      });
+
   defineFunction(rt, proxy, "isModuleLoaded", 1,
       [install](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* a, size_t n) {
         return jsi::Value(install->core->isModuleLoaded(

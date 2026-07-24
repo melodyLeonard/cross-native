@@ -8,7 +8,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
-import type { NativeModule, NativeModuleConfig, CallOptions } from '../types.ts';
+import type {
+  NativeModule,
+  NativeModuleConfig,
+  CallOptions,
+  FunctionSignature,
+  NativeFunction,
+} from '../types.ts';
 import { NativeError } from '../types.ts';
 import { createNativeModule } from './createNativeModule.ts';
 
@@ -31,7 +37,11 @@ type ModulePromiseRef = MutableRefObject<Promise<NativeModule> | null>;
  */
 export function useNativeModule(config: NativeModuleConfig): NativeModule {
   const loadRef = useRef<Promise<NativeModule> | null>(null);
-  const [functions, setFunctions] = useState<string[]>([]);
+  const [ready, setReady] = useState<{
+    functions: string[];
+    manifest: FunctionSignature[];
+    fns: Record<string, NativeFunction>;
+  }>({ functions: [], manifest: [], fns: {} });
 
   useEffect(() => {
     let cancelled = false;
@@ -40,7 +50,13 @@ export function useNativeModule(config: NativeModuleConfig): NativeModule {
 
     loading.then(
       (module) => {
-        if (!cancelled) setFunctions(module.functions);
+        if (cancelled) return;
+        // Route through the loaded module so plugin hooks still apply.
+        const fns: Record<string, NativeFunction> = {};
+        for (const [name, fn] of Object.entries(module.fns)) {
+          fns[name] = (...args: unknown[]) => fn(...args);
+        }
+        setReady({ functions: module.functions, manifest: module.manifest, fns });
       },
       () => {
         // Reported to the caller when they await a call; nothing to do here.
@@ -55,8 +71,8 @@ export function useNativeModule(config: NativeModuleConfig): NativeModule {
   }, [config.name, config.source, config.artifact, config.language]);
 
   return useMemo(
-    () => createHandle(config, loadRef, functions),
-    [config.name, config.language, functions]
+    () => createHandle(config, loadRef, ready),
+    [config.name, config.language, ready]
   );
 }
 
@@ -66,7 +82,11 @@ export function useNativeModule(config: NativeModuleConfig): NativeModule {
 function createHandle(
   config: NativeModuleConfig,
   loadRef: ModulePromiseRef,
-  functions: string[]
+  ready: {
+    functions: string[];
+    manifest: FunctionSignature[];
+    fns: Record<string, NativeFunction>;
+  }
 ): NativeModule {
   const resolve = async (): Promise<NativeModule> => {
     const loading = loadRef.current;
@@ -79,7 +99,9 @@ function createHandle(
   return {
     id: config.name,
     language: config.language,
-    functions,
+    functions: ready.functions,
+    manifest: ready.manifest,
+    fns: ready.fns,
 
     call: async (method: string, args: unknown[] = [], options?: CallOptions) => {
       const module = await resolve();

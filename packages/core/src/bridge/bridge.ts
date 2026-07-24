@@ -7,10 +7,11 @@
 
 import type { NativeModule, NativeModuleConfig, CallOptions } from '../types.ts';
 import { NativeError } from '../types.ts';
-import type { Backend, CallResponse, ModuleSource } from './backend.ts';
+import type { Backend, CallResponse, LoadedModule, ModuleSource } from './backend.ts';
 import { BackendError } from './backend.ts';
 import { normalizeArg, type NativeArg } from './buffers.ts';
 import { isJSIAvailable, JSIBackend } from './jsi.ts';
+import { buildCallables } from './callables.ts';
 
 export interface BridgeOptions {
   /** Use a specific backend instead of auto-detecting one. */
@@ -77,13 +78,13 @@ export class NativeBridge {
     const cached = this.modules.get(config.name);
     if (cached) return cached;
 
-    const functions = await backend.load(
+    const loaded = await backend.load(
       config.name,
       config.language,
       resolveSource(config)
     );
 
-    const module = this.createHandle(config, backend, functions);
+    const module = this.createHandle(config, backend, loaded);
     this.modules.set(config.name, module);
     return module;
   }
@@ -91,9 +92,13 @@ export class NativeBridge {
   private createHandle(
     config: NativeModuleConfig,
     backend: Backend,
-    functions: string[]
+    loaded: LoadedModule
   ): NativeModule {
     const moduleId = config.name;
+    const { functions, manifest } = loaded;
+    // Functions the module declared: their arguments are already in natural
+    // form and the native side marshals them from the signature.
+    const declared = new Set(manifest.map((signature) => signature.name));
     let disposed = false;
 
     const assertLive = () => {
@@ -102,12 +107,7 @@ export class NativeBridge {
       }
     };
 
-    return {
-      id: moduleId,
-      language: config.language,
-      functions,
-
-      call: async (method: string, args: NativeArg[] = [], options?: CallOptions) => {
+    const call = async (method: string, args: NativeArg[] = [], options?: CallOptions) => {
         assertLive();
 
         if (!functions.includes(method)) {
@@ -117,7 +117,10 @@ export class NativeBridge {
           );
         }
 
-        const wireArgs = args.map((arg, index) => normalizeArg(arg, index));
+        // Undeclared functions still use the explicit buffer protocol.
+        const wireArgs = declared.has(method)
+          ? args
+          : args.map((arg, index) => normalizeArg(arg, index));
 
         try {
           const response = await backend.call(moduleId, method, wireArgs, options);
@@ -128,7 +131,19 @@ export class NativeBridge {
           }
           throw error;
         }
-      },
+      };
+
+    return {
+      id: moduleId,
+      language: config.language,
+      functions,
+      manifest,
+
+      // Named functions built from the module's own metadata, so callers can
+      // write compute.fns.matrixMultiply(a, b) instead of calling by string.
+      fns: buildCallables(manifest, call),
+
+      call,
 
       callSync: (): never => {
         throw new NativeError(

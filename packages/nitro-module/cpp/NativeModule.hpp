@@ -28,6 +28,9 @@ public:
   /** List exported functions */
   virtual std::vector<std::string> getFunctions() const = 0;
 
+  /** Declared signatures as JSON, or "[]" if the module has no metadata. */
+  virtual std::string getManifest() const = 0;
+
   /** Call a function. Returns the runtime's JSON result envelope. */
   virtual std::string call(
     const std::string& functionName,
@@ -59,6 +62,7 @@ public:
   std::string getId() const override { return id_; }
   std::string getLanguage() const override { return language_; }
   std::vector<std::string> getFunctions() const override;
+  std::string getManifest() const override;
   std::string call(const std::string& functionName, const std::string& argsJson, bool zeroCopy) override;
   std::string callSync(const std::string& functionName, const std::string& argsJson) override;
   void dispose() override;
@@ -88,6 +92,7 @@ public:
   std::string getId() const override { return id_; }
   std::string getLanguage() const override { return "cpp"; }
   std::vector<std::string> getFunctions() const override;
+  std::string getManifest() const override { return "[]"; }
   std::string call(const std::string& functionName, const std::string& argsJson, bool zeroCopy) override;
   std::string callSync(const std::string& functionName, const std::string& argsJson) override;
   void dispose() override;

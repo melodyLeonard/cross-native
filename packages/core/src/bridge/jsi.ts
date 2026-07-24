@@ -7,7 +7,7 @@
  * drives, in-process rather than over a pipe.
  */
 
-import type { Backend, CallResponse, ModuleSource } from './backend.ts';
+import type { Backend, CallResponse, LoadedModule, ModuleSource } from './backend.ts';
 import { BackendError } from './backend.ts';
 import type { CallOptions } from '../types.ts';
 
@@ -26,6 +26,7 @@ interface CrossNativeProxy {
     optionsJson: string
   ): Promise<string>;
   getModuleFunctions(moduleId: string): string[];
+  getModuleManifest(moduleId: string): string;
   isModuleLoaded(moduleId: string): boolean;
   unloadModule(moduleId: string): void;
   getStats(): Record<string, number>;
@@ -76,7 +77,7 @@ export class JSIBackend implements Backend {
     return new JSIBackend();
   }
 
-  async load(moduleId: string, language: string, source: ModuleSource): Promise<string[]> {
+  async load(moduleId: string, language: string, source: ModuleSource): Promise<LoadedModule> {
     const proxy = getProxy();
 
     const loaded = source.kind === 'bytes'
@@ -86,7 +87,15 @@ export class JSIBackend implements Backend {
     if (!loaded) {
       throw new BackendError(`Failed to load module '${moduleId}'`);
     }
-    return proxy.getModuleFunctions(moduleId);
+
+    let manifest = [];
+    try {
+      manifest = JSON.parse(proxy.getModuleManifest(moduleId));
+    } catch {
+      // A module without readable metadata is still callable by name.
+    }
+
+    return { functions: proxy.getModuleFunctions(moduleId), manifest };
   }
 
   async call(

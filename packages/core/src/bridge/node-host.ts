@@ -10,7 +10,7 @@
  *   make -C packages/nitro-module crossnative-host
  */
 
-import type { Backend, CallResponse, ModuleSource } from './backend.ts';
+import type { Backend, CallResponse, LoadedModule, ModuleSource } from './backend.ts';
 import { BackendError } from './backend.ts';
 import type { CallOptions } from '../types.ts';
 
@@ -145,7 +145,7 @@ export class NodeHostBackend implements Backend {
     });
   }
 
-  async load(moduleId: string, language: string, source: ModuleSource): Promise<string[]> {
+  async load(moduleId: string, language: string, source: ModuleSource): Promise<LoadedModule> {
     // The host loads from a path, so in-memory modules are staged to a temp
     // file. On device the JSI backend hands the bytes over directly.
     const path = source.kind === 'path'
@@ -153,7 +153,10 @@ export class NodeHostBackend implements Backend {
       : await writeTempModule(moduleId, source.bytes);
 
     const response = await this.request({ op: 'load', moduleId, language, path });
-    return response.functions ?? [];
+    return {
+      functions: response.functions ?? [],
+      manifest: response.manifest ?? [],
+    };
   }
 
   async call(

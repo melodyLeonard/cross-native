@@ -7,7 +7,6 @@
  */
 
 import type { NativeModule } from '../src/types.ts';
-import { inoutBuffer, outBuffer } from '../src/bridge/buffers.ts';
 import { allCloseTo, check, closeTo, formatMs, section, time } from './harness.ts';
 import { benchmarkHeavy, matrixMultiply, processDataset } from './reference.ts';
 
@@ -27,7 +26,7 @@ async function benchMatrix(compute: NativeModule): Promise<BenchRow> {
 
   const [jsResult, js] = await time(() => matrixMultiply(a, b, n));
   const [nativeResult, native] = await time(
-    () => compute.call('matrix_multiply', [a, b, outBuffer(n * n), n]) as Promise<number[]>
+    () => compute.fns.matrix_multiply(a, b) as Promise<number[]>
   );
 
   check(`matrix_multiply ${n}x${n} agrees with JS`, allCloseTo(nativeResult, jsResult, 1e-6));
@@ -40,9 +39,7 @@ async function benchDataset(compute: NativeModule): Promise<BenchRow> {
   const data = Array.from({ length: size }, (_, i) => i % 1000);
 
   const [, js] = await time(() => processDataset(data));
-  const [, native] = await time(
-    () => compute.call('process_dataset', [inoutBuffer(data), size])
-  );
+  const [, native] = await time(() => compute.fns.process_dataset(data));
 
   return { name: `Process ${size.toLocaleString()} items`, js, native };
 }
@@ -56,7 +53,7 @@ async function benchTransfer(compute: NativeModule): Promise<BenchRow> {
   const data = Array.from({ length: size }, (_, i) => i % 1000);
 
   const [, js] = await time(() => data.reduce((a, b) => a + b, 0));
-  const [, native] = await time(() => compute.call('sum_array', [data, size]));
+  const [, native] = await time(() => compute.fns.sum_array(data));
 
   return { name: `Transfer ${size.toLocaleString()} f64 (sum only)`, js, native };
 }
@@ -67,7 +64,7 @@ async function benchComputeLoop(compute: NativeModule): Promise<BenchRow> {
 
   const [jsValue, js] = await time(() => benchmarkHeavy(iterations));
   const [nativeValue, native] = await time(
-    () => compute.call('benchmark_heavy', [iterations]) as Promise<number>
+    () => compute.fns.benchmark_heavy(iterations) as Promise<number>
   );
 
   check(

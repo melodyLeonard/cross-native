@@ -78,6 +78,15 @@ public:
   std::vector<std::string> getFunctions(const std::string& moduleId) const;
 
   /**
+   * Get the module's declared signatures as a JSON array.
+   *
+   * Populated from the `__cn_meta_*` exports that #[crossnative] emits. Empty
+   * for modules built without the macro, which are still callable through the
+   * raw buffer protocol.
+   */
+  std::string getManifest(const std::string& moduleId) const;
+
+  /**
    * Check if a module is loaded.
    */
   bool isLoaded(const std::string& moduleId) const;

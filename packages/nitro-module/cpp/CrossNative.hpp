@@ -129,6 +129,14 @@ public:
     bool isModuleLoaded(const std::string& moduleId);
     std::vector<std::string> getModuleFunctions(const std::string& moduleId);
 
+    /**
+     * The module's declared signatures as JSON.
+     *
+     * Bindings hand this to JavaScript so it can build named, typed functions
+     * instead of calling by string with hand-marshalled arguments.
+     */
+    std::string getModuleManifest(const std::string& moduleId);
+
     // Shared memory
     std::string createSharedBuffer(size_t size);
     void releaseSharedBuffer(const std::string& bufferId);
