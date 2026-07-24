@@ -16,6 +16,9 @@ android {
     defaultConfig {
         minSdk resolveExt('minSdkVersion', 24)
 
+        // This native build is aarch64-specific (AOT reloc + trampoline).
+        ndk { abiFilters "arm64-v8a" }
+
         externalNativeBuild {
             cmake {
                 // fbjni and JSI both require RTTI and exceptions.
