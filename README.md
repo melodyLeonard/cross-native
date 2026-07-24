@@ -42,12 +42,12 @@ const product = await compute.call('matrix_multiply', [a, b, outBuffer(n * n), n
 | Node development backend | ✅ Working |
 | JSI backend | ✅ Working |
 | **iOS** | ✅ Working — verified on an iOS 26 simulator with RN 0.86 |
-| **Android** | ❌ Not started — no JNI glue or CMake build yet |
+| **Android** | ✅ Working — verified on an API 36 emulator, all four ABIs build |
 | npm release | ❌ Not published |
 
-It runs in a real React Native app on iOS today: a Rust module compiled to
-WASM, executing on a worker thread, with the UI staying responsive throughout.
-Android is the next platform.
+It runs in a real React Native app on both platforms today: a Rust module
+compiled to WASM, executing on a worker thread, with the UI staying responsive
+throughout.
 
 ---
 
@@ -78,7 +78,7 @@ npm run test:core     # TypeScript API (packages/core/test)
 
 ```bash
 npm install react-native-cross-native
-cd ios && pod install
+cd ios && pod install   # Android links automatically
 ```
 
 Metro has no loader for `.wasm` and asset resolution differs by platform, so
@@ -120,9 +120,15 @@ CrossNative (C++)
         compute.wasm
 ```
 
-On device, `CrossNativeModule` reaches the JS runtime through
-`RCTCallInvokerModule`, whose `CallInvoker` doubles as the dispatcher that
-settles promises back on the JS thread.
+On device, the platform module reaches the JS runtime through the CallInvoker —
+`RCTCallInvokerModule` on iOS, `ReactContext.getJSCallInvokerHolder()` on
+Android — which doubles as the dispatcher that settles promises back on the JS
+thread. That module is the only platform-specific code; the JSI layer and the
+core below it are shared.
+
+On the 32-bit Android ABIs (`armeabi-v7a`, `x86`) wasm3's guaranteed tail calls
+cannot be compiled, so those builds fall back to ordinary calls and run slower.
+`arm64-v8a` and `x86_64` are unaffected.
 
 Each module gets its own wasm3 runtime, so modules are isolated and can run
 concurrently. wasm3 runtimes are not thread-safe, so calls into a single module
@@ -222,6 +228,9 @@ packages/
 │   └── test/             integration suite
 └── nitro-module/         native core
     ├── cpp/              CrossNative, WasmRuntime, ThreadPool, NativeModule
+    ├── jsi/              JSI binding, shared by both platforms
+    ├── ios/              module that installs the proxy
+    ├── android/          the same, plus JNI and the CMake build
     ├── wasm3/            vendored interpreter (see wasm3/VENDOR.md)
     ├── host/             stdio JSON host used by the Node backend
     └── test/             C++ suite and the Rust fixture
@@ -231,16 +240,16 @@ packages/
 
 ## What's next
 
-1. **Android** — JNI glue and a CMake build. The C++ core and the JSI layer are
-   already platform-independent; only the module that installs the proxy is
-   iOS-specific.
-2. **Measure against Hermes** — a first data point: 3,000,000 iterations of the
-   compute loop took 10.4s in a Debug simulator build, against 0.5s in Node.
-   Debug pods are unoptimised and the simulator is not a phone, so this is not
-   yet a fair number — but it does mean the interpreter is the bottleneck, and
-   it deserves a proper Release-build measurement on hardware.
-3. **Cheaper argument transfer** — replace JSON marshalling for large arrays.
-4. **A CLI** — compiling `.rs` to `.wasm` is currently done by the Makefile.
+1. **Measure against Hermes** — the open question. First data points for
+   3,000,000 iterations of the compute loop: 10.4s on the iOS simulator and
+   13.5s on the Android emulator, against 0.5s in Node. Both are Debug builds
+   on emulated hardware, so neither is a fair number — but they do say the
+   interpreter is the bottleneck, and a Release measurement on real devices,
+   against Hermes rather than V8, is what should decide whether the WASM
+   approach earns its place.
+2. **Cheaper argument transfer** — replace JSON marshalling for large arrays.
+3. **A CLI** — compiling `.rs` to `.wasm` is currently done by the Makefile.
+4. **npm release.**
 
 ---
 
