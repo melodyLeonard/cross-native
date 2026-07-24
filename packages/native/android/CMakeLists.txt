@@ -7,13 +7,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # The shared sources live one level up, next to the podspec.
 set(PACKAGE_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
-# Every wasm3 translation unit. Globbed rather than listed so the build cannot
-# silently drift from the vendored tree — an earlier hand-written list omitted
-# m3_module.c and m3_info.c, which made the interpreter impossible to link.
-file(GLOB WASM3_SOURCES CONFIGURE_DEPENDS ${PACKAGE_ROOT}/wasm3/*.c)
+# Include WAMR source files
+set(WAMR_ROOT ${PACKAGE_ROOT}/wamr)
+file(GLOB_RECURSE WAMR_SOURCES 
+    ${WAMR_ROOT}/core/iwasm/common/*.c
+    ${WAMR_ROOT}/core/iwasm/interpreter/*.c
+    ${WAMR_ROOT}/core/shared/utils/*.c
+    ${WAMR_ROOT}/core/shared/mem-alloc/*.c
+    ${WAMR_ROOT}/core/shared/platform/android/*.c
+)
 
 add_library(crossnative SHARED
-    ${WASM3_SOURCES}
+    ${WAMR_SOURCES}
     ${PACKAGE_ROOT}/cpp/CrossNative.cpp
     ${PACKAGE_ROOT}/cpp/WasmRuntime.cpp
     ${PACKAGE_ROOT}/cpp/NativeModule.cpp
@@ -24,17 +29,18 @@ add_library(crossnative SHARED
 
 target_include_directories(crossnative PRIVATE
     ${PACKAGE_ROOT}/cpp
-    ${PACKAGE_ROOT}/wasm3
     ${PACKAGE_ROOT}/jsi
+    ${WAMR_ROOT}/core/iwasm/include
+    ${WAMR_ROOT}/core/shared/utils
+    ${WAMR_ROOT}/core/shared/mem-alloc
+    ${WAMR_ROOT}/core/shared/platform/include
 )
 
-# wasm3's interpreter loop is written with guaranteed tail calls. LLVM cannot
-# emit those on the 32-bit ABIs, where the build dies with "failed to perform
-# tail call elimination on a call site marked musttail". Falling back to
-# ordinary calls costs some speed but only on these legacy ABIs; arm64-v8a and
-# x86_64 keep the tail calls.
-if(ANDROID_ABI STREQUAL "armeabi-v7a" OR ANDROID_ABI STREQUAL "x86")
-    target_compile_definitions(crossnative PRIVATE M3_HAS_TAIL_CALL=0)
+# Enable LLVM JIT for Android
+if(ANDROID_ABI STREQUAL "arm64-v8a" OR ANDROID_ABI STREQUAL "x86_64")
+    target_compile_definitions(crossnative PRIVATE WAMR_BUILD_JIT=1)
+else()
+    target_compile_definitions(crossnative PRIVATE WAMR_BUILD_FAST_INTERP=1)
 endif()
 
 find_package(ReactAndroid REQUIRED CONFIG)

@@ -17,15 +17,19 @@ Pod::Spec.new do |s|
     "ios/**/*.{h,m,mm}",       # module that installs the JSI proxy
     "jsi/**/*.{hpp,cpp}",      # JSI binding layer
     "cpp/**/*.{h,hpp,c,cpp}",  # shared core
-    "wasm3/**/*.{h,c}",        # vendored WASM interpreter
+    "wamr/core/iwasm/common/**/*.{h,c}",
+    "wamr/core/iwasm/interpreter/**/*.{h,c}",
+    "wamr/core/iwasm/aot/**/*.{h,c}",
+    "wamr/core/shared/utils/**/*.{h,c}",
+    "wamr/core/shared/mem-alloc/**/*.{h,c}",
+    "wamr/core/shared/platform/ios/**/*.{h,c}",
+    "wamr/core/shared/platform/include/**/*.{h,c}",
   ]
 
-  # Only CrossNativeModule.h is part of the public surface; everything else is
-  # implementation detail that should not leak into the app's header namespace.
   s.private_header_files = [
     "jsi/**/*.hpp",
     "cpp/**/*.{h,hpp}",
-    "wasm3/**/*.h",
+    "wamr/core/**/*.h",
   ]
 
   s.dependency "React-Core"
@@ -33,13 +37,14 @@ Pod::Spec.new do |s|
   s.dependency "React-jsi"
 
   s.pod_target_xcconfig = {
-    # wasm3.h and the core headers are included unqualified by their own sources.
     "HEADER_SEARCH_PATHS" => [
-      "\"$(PODS_TARGET_SRCROOT)/wasm3\"",
       "\"$(PODS_TARGET_SRCROOT)/cpp\"",
+      "\"$(PODS_TARGET_SRCROOT)/wamr/core/iwasm/include\"",
+      "\"$(PODS_TARGET_SRCROOT)/wamr/core/shared/utils\"",
+      "\"$(PODS_TARGET_SRCROOT)/wamr/core/shared/mem-alloc\"",
+      "\"$(PODS_TARGET_SRCROOT)/wamr/core/shared/platform/include\"",
     ].join(" "),
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
-    # wasm3 relies on computed goto and takes the address of labels.
-    "GCC_WARN_ABOUT_RETURN_TYPE" => "NO",
+    "GCC_PREPROCESSOR_DEFINITIONS" => "WAMR_BUILD_AOT=1",
   }
 end

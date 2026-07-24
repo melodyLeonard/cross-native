@@ -62,3 +62,6 @@ ios/Pods/
 
 # Rust
 target/
+
+# Android native build
+.cxx/

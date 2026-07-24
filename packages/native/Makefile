@@ -1,14 +1,43 @@
-# CrossNative Makefile
-# Builds the C++ core (wasm3 + CrossNative) and a host test runner.
+# CrossNative Makefile — WAMR backend
+# Builds the C++ core (WAMR + CrossNative) and a host test runner.
 #
 #   make            build libcrossnative.a
 #   make check      compile the Rust example to WASM, build the runner, run tests
 #   make clean      remove build artifacts
 
-CC = clang
+CC  = clang
 CXX = clang++
-CFLAGS = -O3 -fPIC -I. -Icpp -Iwasm3 -std=c11
-CXXFLAGS = -O3 -fPIC -I. -Icpp -Iwasm3 -std=c++17
+
+WAMR_ROOT = wamr
+
+# Feature defines — both the cmake-style WAMR_BUILD_ and the internal WASM_ENABLE_ prefixes.
+WAMR_DEFS = \
+	-DBH_MALLOC=wasm_runtime_malloc -DBH_FREE=wasm_runtime_free \
+	-DBH_PLATFORM_DARWIN -DBUILD_TARGET_AARCH64 \
+	-DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_FAST_INTERP=1 \
+	-DWASM_ENABLE_AOT=0 \
+	-DWASM_ENABLE_LIBC_BUILTIN=1 -DWASM_ENABLE_BULK_MEMORY=1 -DWASM_ENABLE_REF_TYPES=1 \
+	-DWASM_ENABLE_SIMD=0 -DWASM_ENABLE_SHRUNK_MEMORY=1 \
+	-DWASM_ENABLE_MULTI_MODULE=0 -DWASM_ENABLE_SHARED_MEMORY=0 -DWASM_ENABLE_MINI_LOADER=0 \
+	-DWASM_ENABLE_EXTENDED_CONST_EXPR=0 \
+	-DWASM_DISABLE_HW_BOUND_CHECK=1 -DWASM_DISABLE_STACK_HW_BOUND_CHECK=1 \
+	-DWASM_DISABLE_WAKEUP_BLOCKING_OP=0 -DWASM_HAVE_MREMAP=0 \
+	-DWASM_GLOBAL_HEAP_SIZE=10485760 -DNDEBUG
+
+WAMR_INC = \
+	-I$(WAMR_ROOT)/core/iwasm/include \
+	-I$(WAMR_ROOT)/core/iwasm/interpreter \
+	-I$(WAMR_ROOT)/core/iwasm/common \
+	-I$(WAMR_ROOT)/core/iwasm/libraries/libc-builtin \
+	-I$(WAMR_ROOT)/core/shared/include \
+	-I$(WAMR_ROOT)/core/shared/mem-alloc \
+	-I$(WAMR_ROOT)/core/shared/platform/include \
+	-I$(WAMR_ROOT)/core/shared/platform/darwin \
+	-I$(WAMR_ROOT)/core/shared/utils \
+	-I$(WAMR_ROOT)/core/shared/utils/uncommon
+
+CFLAGS   = -O3 -fPIC -I. -Icpp $(WAMR_INC) $(WAMR_DEFS) -std=c11
+CXXFLAGS = -O3 -fPIC -I. -Icpp $(WAMR_INC) $(WAMR_DEFS) -std=c++17
 
 # macOS puts dlopen in libSystem; only Linux needs an explicit -ldl.
 UNAME_S := $(shell uname -s)
@@ -18,18 +47,44 @@ else
   LDFLAGS = -lpthread -ldl
 endif
 
-WASM3_SOURCES = \
-	wasm3/m3_api_libc.c \
-	wasm3/m3_bind.c \
-	wasm3/m3_code.c \
-	wasm3/m3_compile.c \
-	wasm3/m3_core.c \
-	wasm3/m3_env.c \
-	wasm3/m3_exec.c \
-	wasm3/m3_function.c \
-	wasm3/m3_info.c \
-	wasm3/m3_module.c \
-	wasm3/m3_parse.c
+WAMR_SOURCES = \
+	$(WAMR_ROOT)/core/iwasm/common/arch/invokeNative_general.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_application.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_blocking_op.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_c_api.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_exec_env.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_loader_common.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_memory.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_native.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_runtime_common.c \
+	$(WAMR_ROOT)/core/iwasm/common/wasm_shared_memory.c \
+	$(WAMR_ROOT)/core/iwasm/interpreter/wasm_interp_fast.c \
+	$(WAMR_ROOT)/core/iwasm/interpreter/wasm_loader.c \
+	$(WAMR_ROOT)/core/iwasm/interpreter/wasm_runtime.c \
+	$(WAMR_ROOT)/core/iwasm/libraries/libc-builtin/libc_builtin_wrapper.c \
+	$(WAMR_ROOT)/core/shared/mem-alloc/ems/ems_alloc.c \
+	$(WAMR_ROOT)/core/shared/mem-alloc/ems/ems_gc.c \
+	$(WAMR_ROOT)/core/shared/mem-alloc/ems/ems_hmu.c \
+	$(WAMR_ROOT)/core/shared/mem-alloc/ems/ems_kfc.c \
+	$(WAMR_ROOT)/core/shared/mem-alloc/mem_alloc.c \
+	$(WAMR_ROOT)/core/shared/platform/common/memory/mremap.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_blocking_op.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_malloc.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_memmap.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_sleep.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_thread.c \
+	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_time.c \
+	$(WAMR_ROOT)/core/shared/platform/darwin/platform_init.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_assert.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_bitmap.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_common.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_hashmap.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_leb128.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_list.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_log.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_queue.c \
+	$(WAMR_ROOT)/core/shared/utils/bh_vector.c \
+	$(WAMR_ROOT)/core/shared/utils/runtime_timer.c
 
 CROSSNATIVE_SOURCES = \
 	cpp/CrossNative.cpp \
@@ -37,7 +92,7 @@ CROSSNATIVE_SOURCES = \
 	cpp/NativeModule.cpp \
 	cpp/ThreadPool.cpp
 
-WASM3_OBJECTS = $(WASM3_SOURCES:.c=.o)
+WAMR_OBJECTS = $(patsubst %.s,%.o,$(WAMR_SOURCES:.c=.o))
 CROSSNATIVE_OBJECTS = $(CROSSNATIVE_SOURCES:.cpp=.o)
 
 # The Rust test fixture. A cargo crate, because #[crossnative] is a proc macro.
@@ -54,11 +109,14 @@ all: libcrossnative.a
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-libcrossnative.a: $(WASM3_OBJECTS) $(CROSSNATIVE_OBJECTS)
+%.o: %.s
+	$(CC) -c $< -o $@
+
+libcrossnative.a: $(WAMR_OBJECTS) $(CROSSNATIVE_OBJECTS)
 	ar rcs $@ $^
 	ranlib $@
 
-libcrossnative.so: $(WASM3_OBJECTS) $(CROSSNATIVE_OBJECTS)
+libcrossnative.so: $(WAMR_OBJECTS) $(CROSSNATIVE_OBJECTS)
 	$(CXX) -shared -o $@ $^ $(LDFLAGS)
 
 # Host test runner
@@ -83,7 +141,7 @@ check: test_runner $(WASM_TARGET)
 	./test_runner $(WASM_TARGET)
 
 clean:
-	rm -f $(WASM3_OBJECTS) $(CROSSNATIVE_OBJECTS) libcrossnative.a libcrossnative.so test_runner crossnative-host
+	rm -f $(WAMR_OBJECTS) $(CROSSNATIVE_OBJECTS) libcrossnative.a libcrossnative.so test_runner crossnative-host
 	rm -rf build
 
 .PHONY: all clean check wasm host
