@@ -4,6 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2022"],
+    "types": ["node"],
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -17,7 +18,19 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+
+    // Relative imports carry an explicit .ts extension so Node can run the
+    // sources directly with --experimental-strip-types, no build step.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    // Nothing here may rely on syntax that type stripping cannot erase:
+    // no enums, namespaces, parameter properties or decorators.
+    "erasableSyntaxOnly": true,
+
+    "noEmit": true
   },
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"],
   "exclude": ["node_modules", "dist", "build", "lib"]
 }

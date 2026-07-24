@@ -1,7 +1,7 @@
 {
   "name": "cross-native",
   "version": "0.0.1",
-  "description": "Run any language in React Native — with type safety, multiple threads, and zero native code knowledge required.",
+  "description": "Run compiled languages off the JavaScript thread in React Native.",
   "private": true,
   "workspaces": [
     "packages/*"
@@ -15,13 +15,12 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "devDependencies": {
-    "turbo": "^2.0.0",
     "prettier": "^3.2.0",
-    "typescript": "^5.4.0",
+    "typescript": "^5.8.0",
     "@types/node": "^20.12.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.6.0"
   },
   "packageManager": "npm@10.5.0",
   "repository": {
