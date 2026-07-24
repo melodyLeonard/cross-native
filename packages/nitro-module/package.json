@@ -1,35 +1,33 @@
 {
   "name": "react-native-cross-native",
   "version": "0.1.0",
-  "description": "CrossNative - Run any language in React Native via Nitro Modules + WASM",
-  "main": "lib/index.js",
-  "module": "lib/index.mjs",
-  "types": "lib/index.d.ts",
-  "react-native": "src/index",
+  "description": "CrossNative - run compiled languages off the JS thread via JSI + WASM",
+  "main": "src/index.ts",
+  "react-native": "src/index.ts",
   "files": [
     "src",
     "lib",
     "android",
     "ios",
     "cpp",
+    "jsi",
+    "wasm3",
     "*.podspec",
     "README.md"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "watch": "tsup src/index.ts --format cjs,esm --dts --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx",
     "clean": "rm -rf lib"
   },
   "keywords": [
     "react-native",
-    "nitro",
     "native-modules",
     "rust",
     "wasm",
     "threads",
-    "performance"
+    "performance",
+    "jsi"
   ],
   "repository": {
     "type": "git",
@@ -44,13 +42,12 @@
   "devDependencies": {
     "@types/react": "^18.2.0",
     "typescript": "^5.4.0",
-    "tsup": "^8.0.0",
     "eslint": "^8.57.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0"
   },
   "dependencies": {
-    "react-native-nitro-modules": "^0.35.0"
+    "@cross-native/core": "*"
   },
   "peerDependencies": {
     "react": "^18.2.0",

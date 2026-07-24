@@ -73,7 +73,7 @@ CrossNative::CrossNative()
     threadPool_(std::make_unique<ThreadPool>(
       std::thread::hardware_concurrency()
     )) {
-  log(LogLevel::INFO, "CrossNative initialized with " +
+  log(LogLevel::Info, "CrossNative initialized with " +
       std::to_string(std::thread::hardware_concurrency()) + " threads");
 }
 
@@ -83,7 +83,7 @@ CrossNative::~CrossNative() {
     module->dispose();
   }
   modules_.clear();
-  log(LogLevel::INFO, "CrossNative destroyed");
+  log(LogLevel::Info, "CrossNative destroyed");
 }
 
 std::future<bool> CrossNative::loadModule(
@@ -92,7 +92,7 @@ std::future<bool> CrossNative::loadModule(
     const std::string& sourcePath) {
   return threadPool_->enqueue(TaskPriority::HIGH, [this, moduleId, language, sourcePath]() -> bool {
     try {
-      log(LogLevel::INFO, "Loading module: " + moduleId + " (" + language + ")");
+      log(LogLevel::Info, "Loading module: " + moduleId + " (" + language + ")");
 
       if (isWasmLanguage(language)) {
         // The source has already been compiled to WASM by this point.
@@ -108,7 +108,7 @@ std::future<bool> CrossNative::loadModule(
       }
       return true;
     } catch (const std::exception& e) {
-      log(LogLevel::ERROR, "Failed to load module " + moduleId + ": " + e.what());
+      log(LogLevel::Error, "Failed to load module " + moduleId + ": " + e.what());
       return false;
     }
   });
@@ -122,7 +122,7 @@ std::future<bool> CrossNative::loadModuleFromBytes(
       TaskPriority::HIGH,
       [this, moduleId, language, bytes = std::move(wasmBytes)]() -> bool {
         try {
-          log(LogLevel::INFO, "Loading module from bytes: " + moduleId +
+          log(LogLevel::Info, "Loading module from bytes: " + moduleId +
               " (" + language + ", " + std::to_string(bytes.size()) + " bytes)");
 
           if (!isWasmLanguage(language)) {
@@ -132,7 +132,7 @@ std::future<bool> CrossNative::loadModuleFromBytes(
           installWasmModule(moduleId, language, bytes);
           return true;
         } catch (const std::exception& e) {
-          log(LogLevel::ERROR, "Failed to load module " + moduleId + ": " + e.what());
+          log(LogLevel::Error, "Failed to load module " + moduleId + ": " + e.what());
           return false;
         }
       });
@@ -165,7 +165,7 @@ void CrossNative::registerModule(const std::string& moduleId,
     std::lock_guard<std::mutex> lock(modulesMutex_);
     modules_[moduleId] = std::move(module);
   }
-  log(LogLevel::INFO, "Module loaded: " + moduleId + " (" +
+  log(LogLevel::Info, "Module loaded: " + moduleId + " (" +
       std::to_string(functionCount) + " exported functions)");
 }
 
@@ -267,7 +267,7 @@ void CrossNative::loadModuleFromBytesAsync(
           installWasmModule(moduleId, language, bytes);
           callback(true, "");
         } catch (const std::exception& e) {
-          log(LogLevel::ERROR, "Failed to load module " + moduleId + ": " + e.what());
+          log(LogLevel::Error, "Failed to load module " + moduleId + ": " + e.what());
           callback(false, e.what());
         }
       });
@@ -299,7 +299,7 @@ void CrossNative::unloadModule(const std::string& moduleId) {
   if (it != modules_.end()) {
     it->second->dispose();
     modules_.erase(it);
-    log(LogLevel::INFO, "Module unloaded: " + moduleId);
+    log(LogLevel::Info, "Module unloaded: " + moduleId);
   }
 }
 
@@ -346,20 +346,20 @@ std::unordered_map<std::string, double> CrossNative::getStats() {
 }
 
 void CrossNative::setLogLevel(const std::string& level) {
-  if (level == "debug") logLevel_ = LogLevel::DEBUG;
-  else if (level == "info") logLevel_ = LogLevel::INFO;
-  else if (level == "warn") logLevel_ = LogLevel::WARN;
-  else if (level == "error") logLevel_ = LogLevel::ERROR;
+  if (level == "debug") logLevel_ = LogLevel::Debug;
+  else if (level == "info") logLevel_ = LogLevel::Info;
+  else if (level == "warn") logLevel_ = LogLevel::Warn;
+  else if (level == "error") logLevel_ = LogLevel::Error;
 }
 
 void CrossNative::log(LogLevel level, const std::string& message) {
   if (level < logLevel_) return;
   std::string prefix;
   switch (level) {
-    case LogLevel::DEBUG: prefix = "[DEBUG]"; break;
-    case LogLevel::INFO: prefix = "[INFO]"; break;
-    case LogLevel::WARN: prefix = "[WARN]"; break;
-    case LogLevel::ERROR: prefix = "[ERROR]"; break;
+    case LogLevel::Debug: prefix = "[DEBUG]"; break;
+    case LogLevel::Info: prefix = "[INFO]"; break;
+    case LogLevel::Warn: prefix = "[WARN]"; break;
+    case LogLevel::Error: prefix = "[ERROR]"; break;
   }
   // stderr, not stdout: hosts embedding this library use stdout as a data
   // channel, and log lines would corrupt it.

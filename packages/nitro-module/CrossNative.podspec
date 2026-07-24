@@ -11,34 +11,35 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.platforms    = { :ios => min_ios_version_supported }
-  s.source       = { :git => "https://github.com/yourusername/cross-native.git", :tag => "#{s.version}" }
+  s.source       = { :git => package["repository"]["url"], :tag => "#{s.version}" }
 
   s.source_files = [
-    # Nitro Module files
-    "ios/**/*.{swift,h,hpp,m,mm,c,cpp}",
-    # Shared C++ files
-    "cpp/**/*.{h,hpp,c,cpp}",
+    "ios/**/*.{h,m,mm}",       # module that installs the JSI proxy
+    "jsi/**/*.{hpp,cpp}",      # JSI binding layer
+    "cpp/**/*.{h,hpp,c,cpp}",  # shared core
+    "wasm3/**/*.{h,c}",        # vendored WASM interpreter
   ]
 
+  # Only CrossNativeModule.h is part of the public surface; everything else is
+  # implementation detail that should not leak into the app's header namespace.
   s.private_header_files = [
-    "cpp/**/*.h",
-    "cpp/**/*.hpp",
+    "jsi/**/*.hpp",
+    "cpp/**/*.{h,hpp}",
+    "wasm3/**/*.h",
   ]
 
-  # Add any dependencies here
-  s.dependency "React-NativeModulesApple"
+  s.dependency "React-Core"
   s.dependency "React-callinvoker"
   s.dependency "React-jsi"
-  s.dependency "react-native-nitro-modules"
 
-  # Swift/Objective-C interoperability
   s.pod_target_xcconfig = {
-    "GCC_PREPROCESSOR_DEFINITIONS" => "$(inherited) CROSSNATIVE_ENABLE_WASM=1",
-    "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -std=c++20",
-    "SWIFT_COMPILATION_MODE" => "wholemodule",
+    # wasm3.h and the core headers are included unqualified by their own sources.
+    "HEADER_SEARCH_PATHS" => [
+      "\"$(PODS_TARGET_SRCROOT)/wasm3\"",
+      "\"$(PODS_TARGET_SRCROOT)/cpp\"",
+    ].join(" "),
+    "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
+    # wasm3 relies on computed goto and takes the address of labels.
+    "GCC_WARN_ABOUT_RETURN_TYPE" => "NO",
   }
-
-  # Install Nitrogen
-  load File.join(File.dirname(`node --print "require.resolve('react-native-nitro-modules/package.json')"`), "scripts", "nitrogen.rb")
-  nitrogen_install(s)
 end

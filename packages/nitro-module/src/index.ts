@@ -1,20 +1,58 @@
 /**
- * Nitro-based CrossNative module
- * 
- * Uses Nitro Modules (by Margelo) for high-performance native interop.
- * Provides a HybridObject interface for calling native functions.
+ * react-native-cross-native
+ *
+ * Installs the JSI proxy the core's JSIBackend talks to, then re-exports the
+ * public API so an app only depends on this one package.
  */
 
-import { NitroModules } from 'react-native-nitro-modules'
-import type { CrossNative as CrossNativeType } from './CrossNative.nitro'
+import { NativeModules } from 'react-native';
+import { registerJSIInstaller } from '@cross-native/core';
+
+interface CrossNativeInstaller {
+  install(): Promise<boolean>;
+}
+
+let installation: Promise<void> | null = null;
 
 /**
- * Get the native CrossNative instance
+ * Install `globalThis.__CrossNativeProxy`.
+ *
+ * Native modules are constructed lazily, so nothing reaches the JS runtime
+ * until this is called. Safe to call repeatedly — the work happens once.
+ *
+ * `createNativeModule` calls this automatically; call it yourself only to
+ * control when the cost is paid, or to surface a setup failure early.
  */
-export const CrossNative = NitroModules.createCrossNative<CrossNativeType>('CrossNative')
+export function installCrossNative(): Promise<void> {
+  if (installation) return installation;
 
-export type { CrossNativeType }
-export { CrossNative }
+  installation = (async () => {
+    if ((globalThis as any).__CrossNativeProxy) return;
 
-// Re-export all core types and utilities
-export * from '@cross-native/core'
+    const native = NativeModules.CrossNative as CrossNativeInstaller | undefined;
+    if (!native?.install) {
+      throw new Error(
+        'The CrossNative native module is not linked. Rebuild the app after ' +
+        'installing the package (iOS: cd ios && pod install).'
+      );
+    }
+
+    await native.install();
+
+    if (!(globalThis as any).__CrossNativeProxy) {
+      throw new Error('CrossNative installed but __CrossNativeProxy is missing.');
+    }
+  })();
+
+  // Let a failed attempt be retried rather than caching the rejection forever.
+  installation.catch(() => {
+    installation = null;
+  });
+
+  return installation;
+}
+
+export * from '@cross-native/core';
+
+// Let the core reach the native module without depending on react-native.
+registerJSIInstaller(installCrossNative);

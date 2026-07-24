@@ -34,11 +34,16 @@ struct NativeResult {
     ExecutionMetrics metrics;
 };
 
+/**
+ * Mixed case deliberately: iOS Debug builds define a DEBUG macro, and several
+ * platform headers define ERROR, so uppercase enumerators do not survive
+ * preprocessing.
+ */
 enum class LogLevel {
-    DEBUG = 0,
-    INFO = 1,
-    WARN = 2,
-    ERROR = 3
+    Debug = 0,
+    Info = 1,
+    Warn = 2,
+    Error = 3
 };
 
 /**
@@ -143,7 +148,7 @@ private:
     std::unordered_map<std::string, std::shared_ptr<SharedBuffer>> buffers_;
     int nextBufferId_ = 0;
     
-    LogLevel logLevel_ = LogLevel::INFO;
+    LogLevel logLevel_ = LogLevel::Info;
 
     void log(LogLevel level, const std::string& message);
 
