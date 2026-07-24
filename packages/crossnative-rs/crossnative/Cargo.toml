@@ -1,0 +1,9 @@
+[package]
+name = "crossnative"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Write plain Rust, call it from JavaScript off the UI thread"
+
+[dependencies]
+crossnative-macro = { path = "../crossnative-macro", version = "0.1.0" }

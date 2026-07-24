@@ -1,0 +1,16 @@
+[package]
+name = "compute"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+crossnative = { path = "../../../../crossnative-rs/crossnative" }
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = "symbols"

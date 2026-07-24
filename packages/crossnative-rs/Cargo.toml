@@ -1,0 +1,3 @@
+[workspace]
+members = ["crossnative", "crossnative-macro"]
+resolver = "2"
