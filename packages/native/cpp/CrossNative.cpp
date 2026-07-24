@@ -14,11 +14,20 @@ namespace {
  * @cross-native/languages; here the only question is what kind of artifact we
  * were handed. `language` is carried through for diagnostics only.
  */
+bool hasSuffix(const std::string& path, const std::string& suffix) {
+  return path.size() >= suffix.size() &&
+         path.compare(path.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+/**
+ * Whether a path names something the WASM runtime loads.
+ *
+ * WAMR's loader auto-detects the format from the bytes, so both a plain .wasm
+ * and an AOT-compiled .aot go through the same runtime; only a native shared
+ * library takes the other path.
+ */
 bool isWasmArtifact(const std::string& path) {
-  constexpr const char* kSuffix = ".wasm";
-  constexpr size_t kSuffixLength = 5;
-  return path.size() >= kSuffixLength &&
-         path.compare(path.size() - kSuffixLength, kSuffixLength, kSuffix) == 0;
+  return hasSuffix(path, ".wasm") || hasSuffix(path, ".aot");
 }
 
 /**
