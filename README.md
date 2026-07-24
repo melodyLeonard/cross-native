@@ -1,106 +1,139 @@
 # CrossNative
 
-> **Run any compiled language in React Native — with type safety, multiple threads, and zero native code knowledge required.**
+> Run compiled languages off the JavaScript thread, with type safety and no native code knowledge required.
 
-[![npm version](https://img.shields.io/npm/v/react-native-cross-native.svg)](https://www.npmjs.com/package/react-native-cross-native)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-## 🎯 What Problem Does It Solve?
-
-React Native runs all JavaScript on a **single thread**. When you have:
-
-- O(n⁴) matrix computations
-- Large data processing (50MB+ JSON)
-- Real-time signal processing
-- Cryptographic operations
-
-The **UI freezes**. Users see janky scrolling, unresponsive buttons, dropped frames.
-
-**CrossNative** solves this by moving heavy computation to native code that runs on separate threads.
-
----
-
-## ✨ Developer Experience
+React Native runs all JavaScript on a single thread. Matrix maths, large data
+processing, signal processing and cryptography all block it, and the UI stops
+responding. CrossNative moves that work into a WASM module executed on a worker
+thread, so the JS thread stays free.
 
 ```rust
-// native/math.rs — Write in Rust
+// compute.rs — write it in Rust
 #[no_mangle]
-pub extern "C" fn compute_matrix(data_ptr: *const f64, size: usize) -> *mut f64 {
-    // Heavy O(n³) computation
-    // Runs at native speed on separate thread
+pub extern "C" fn matrix_multiply(a: *const f64, b: *const f64, out: *mut f64, n: usize) {
+    // heavy O(n³) work
 }
 ```
 
-```tsx
-// App.tsx — Use in React Native
-import { useNativeModule } from 'react-native-cross-native';
+```typescript
+// use it from TypeScript
+import { createNativeModule, outBuffer } from '@cross-native/core';
 
-const MathModule = useNativeModule({
-  name: 'math',
-  source: './native/math.rs',
+const compute = await createNativeModule({
+  name: 'compute',
+  source: './native/compute.rs',
   language: 'rust',
 });
 
-// UI stays at 60fps — computation runs off the main thread!
-const result = await MathModule.call('computeMatrix', [data, 100]);
+const product = await compute.call('matrix_multiply', [a, b, outBuffer(n * n), n]);
 ```
 
 ---
 
 ## ⚠️ Project status
 
-Honest summary of what is and isn't working:
-
 | Component | Status |
 |-----------|--------|
-| C++ core (wasm3 runtime, thread pool, marshalling) | ✅ Working — 17 tests, `make -C packages/nitro-module check` |
-| Rust → WASM → call → result | ✅ Working — verified end-to-end |
-| TypeScript API (`createNativeModule`, buffers, plugins) | ✅ Working — verified by `examples/node-demo` |
+| C++ core — wasm3 runtime, thread pool, argument marshalling | ✅ Working, 17 checks |
+| Rust → WASM → call → result | ✅ Working, verified end-to-end |
+| TypeScript API — `createNativeModule`, buffers, plugins | ✅ Working, 12 checks |
 | Node development backend | ✅ Working |
 | JSI / Nitro on-device backend | ❌ Not wired up — needs nitrogen codegen and a pod/gradle build |
-| React Native example app | ❌ `example-app/App.tsx` still runs against a mock; there is no `ios/` or `android/` project |
+| React Native integration | ❌ No example app; the library cannot be used in an RN app yet |
 | npm release | ❌ Not published |
 
-The library is **not usable in a React Native app yet**. The engine underneath it
-works and is tested; the on-device binding is the remaining gap.
+**The engine works and is tested. The on-device binding is the remaining gap.**
 
 ---
 
-## 🚀 Quick Start
+## Getting started
+
+Requirements: Node 22.6+, a C++17 compiler, `make`, and Rust with the
+`wasm32-unknown-unknown` target.
 
 ```bash
-# Install
-npm install react-native-cross-native
-
-# Write Rust (or Go, C++, Zig)
-# Build — compiles to WASM + generates TypeScript
-npx cross-native build
-
-# Use in your app
-const result = await NativeModule.call('myFunction', [args]);
+rustup target add wasm32-unknown-unknown
+npm test
 ```
 
-See [QUICK_START.md](QUICK_START.md) for full details.
+That compiles wasm3 and the C++ core, builds the Rust fixture to WASM, and runs
+both suites. There is no `npm install` step — the core has no runtime
+dependencies, and its TypeScript runs directly on Node via type stripping.
+
+Individual suites:
+
+```bash
+npm run test:native   # C++ core (packages/nitro-module/test)
+npm run test:core     # TypeScript API (packages/core/test)
+```
+
+---
+
+## How it works
+
+```
+JavaScript
+    │
+    ▼  createNativeModule / useNativeModule
+Backend
+    ├── JSIBackend        on device, in-process (not yet wired up)
+    └── NodeHostBackend   development, over stdio
+    │
+    ▼
+CrossNative (C++)
+    ├── ThreadPool        priority queue, one worker per core
+    └── WasmRuntime       one wasm3 runtime per module
+            │
+            ▼
+        compute.wasm
+```
+
+Each module gets its own wasm3 runtime, so modules are isolated and can run
+concurrently. wasm3 runtimes are not thread-safe, so calls into a single module
+are serialised by a per-module lock.
+
+### Passing data
+
+Numbers cross by value. Arrays have to be copied into the module's linear
+memory, which requires the module to export `cn_alloc` and `cn_free`:
+
+```typescript
+import { inBuffer, outBuffer, inoutBuffer } from '@cross-native/core';
+
+await compute.call('sum_array', [inBuffer([1, 2, 3]), 3]);          // read-only
+await compute.call('matrix_multiply', [a, b, outBuffer(9), 3]);      // written by the module
+await compute.call('process_dataset', [inoutBuffer(data), len]);     // mutated in place
+```
+
+Plain arrays and TypedArrays are converted to read-only input buffers
+automatically. A call with a single output buffer returns that buffer directly.
+
+### Plugins
+
+```typescript
+const compute = await createNativeModule({
+  name: 'compute',
+  source: './native/compute.rs',
+  language: 'rust',
+  plugins: [ConsolePlugin({ logArgs: true }), PerformancePlugin({ slowThresholdMs: 50 })],
+});
+```
 
 ---
 
 ## 📊 Performance
 
-Measured on an Apple Silicon Mac with `examples/node-demo`, comparing the wasm3
+Measured on an Apple Silicon Mac by `npm run test:core`, comparing the wasm3
 interpreter against Node's V8 JIT:
 
 | Operation | JS (V8) | CrossNative (wasm3) | Ratio |
 |-----------|---------|---------------------|-------|
-| Matrix 120×120 | 2.9ms | 19.8ms | 6.7× slower |
-| Process 200,000 items | 6.2ms | 187.2ms | 30× slower |
-| Transfer 200,000 f64 (no real work) | 1.0ms | 33.8ms | 33.9× slower |
-| Compute loop 2,000,000× | 42.7ms | 502.8ms | 11.8× slower |
-
-Reproduce with:
-
-```bash
-make -C packages/nitro-module crossnative-host wasm && node --experimental-strip-types examples/node-demo/demo.ts
-```
+| Matrix 120×120 | 3.5ms | 18.3ms | 5.3× slower |
+| Process 200,000 items | 6.4ms | 182.0ms | 28.5× slower |
+| Transfer 200,000 f64 (no real work) | 1.0ms | 32.9ms | 33.6× slower |
+| Compute loop 2,000,000× | 42.0ms | 506.5ms | 12.1× slower |
 
 **Read this table carefully — it does not say what you might expect.**
 
@@ -108,7 +141,7 @@ wasm3 is an *interpreter*. V8 is an optimising JIT. On raw numeric code V8 wins
 by roughly an order of magnitude, and no amount of tuning changes that.
 CrossNative does not make computation faster than JavaScript on a desktop.
 
-Two things matter for the real target, though:
+Two things matter for the real target:
 
 1. **React Native does not run V8.** It runs Hermes, which has no optimising JIT
    for numeric code and is far slower than V8 at exactly this kind of work. The
@@ -119,190 +152,62 @@ Two things matter for the real target, though:
    speed on iOS requires compiling Rust into the app binary at build time and
    calling it over FFI — a different architecture from loading WASM at runtime.
 
-What CrossNative *does* deliver today is **the work happens off the JS thread**.
-The demo verifies this directly: the JS event loop ticked 1,076 times during a
-1,217ms native call. That is the property that keeps a UI at 60fps, and it holds
-regardless of the raw throughput comparison.
+What CrossNative *does* deliver today is that **the work happens off the JS
+thread**. The suite asserts this directly: the JS event loop ticked 1,080 times
+during a 1,221ms native call. That is the property that keeps a UI at 60fps, and
+it holds regardless of the throughput comparison.
 
-The transfer row is also worth noting: moving 200,000 doubles across the bridge
-costs ~34ms, because arguments are currently marshalled as JSON. For large
-arrays this dominates. Reducing it is tracked in [ROADMAP.md](ROADMAP.md).
+The transfer row is worth noting too: moving 200,000 doubles costs ~33ms because
+arguments are marshalled as JSON. For large arrays this dominates, and reducing
+it is the most valuable open optimisation.
 
 ---
 
-## 🏗 Architecture
+## Supported languages
 
-CrossNative is built on **Nitro Modules** (by Margelo) — the fastest native module system for React Native:
+| Language | Status |
+|----------|--------|
+| **Rust** | ✅ Working — verified end-to-end |
+| **Go** (TinyGo) | 🔵 Planned |
+| **C++** | 🟡 Partial — `SharedLibraryModule` loads a `.dylib`/`.so` exporting `crossnative_call`, untested |
+| **Zig** | 🔵 Planned |
+
+The runtime is not Rust-specific: any `wasm32` binary exporting `cn_alloc` and
+`cn_free` will load today. What is missing for other languages is a compile step.
+
+---
+
+## Layout
 
 ```
-React Native (JS Thread)
-    │
-    ▼ JSI — Direct memory access, no JSON serialization
-    │
-Nitro Bridge (C++) — 16× faster than TurboModules
-    │
-    ├── Thread Pool — Priority queue, work stealing
-    │   ├── Worker 1: Rust WASM module
-    │   ├── Worker 2: Go WASM module
-    │   └── Worker 3: C++ shared library
-    │
-    └── Shared Memory — Zero-copy ArrayBuffer transfer
+packages/
+├── core/                 TypeScript API
+│   ├── src/api/          createNativeModule, useNativeModule
+│   ├── src/bridge/       backends, argument marshalling
+│   ├── src/plugins/      console, performance
+│   └── test/             integration suite
+└── nitro-module/         native core
+    ├── cpp/              CrossNative, WasmRuntime, ThreadPool, NativeModule
+    ├── wasm3/            vendored interpreter (see wasm3/VENDOR.md)
+    ├── host/             stdio JSON host used by the Node backend
+    └── test/             C++ suite and the Rust fixture
 ```
 
-**Key advantages over existing solutions:**
+---
 
-| Feature | CrossNative | react-native-worklets | react-native-multithreading |
-|---------|-------------|----------------------|---------------------------|
-| Language support | **Any** (via WASM) | JavaScript only | JavaScript only |
-| Execution | Off the JS thread | Off the JS thread | Off the JS thread |
-| Raw throughput | Interpreted WASM — see [Performance](#-performance) | JS engine speed | JS engine speed |
-| Type safety | Auto-generated | Manual | Manual |
-| Threading | **Automatic** | Manual | Manual |
+## What's next
+
+1. **Nitro/JSI binding** — nitrogen codegen plus the pod and gradle wiring, so
+   the library can be used from a real app. This is the blocker for everything
+   else.
+2. **Measure against Hermes** — the comparison that actually decides whether the
+   WASM approach is worth it on device.
+3. **Cheaper argument transfer** — replace JSON marshalling for large arrays.
+4. **A CLI** — compiling `.rs` to `.wasm` is currently done by the Makefile.
 
 ---
 
-## 🛠 Supported Languages
+## License
 
-| Language | Status | Compilation |
-|----------|--------|-------------|
-| **Rust** | ✅ Working — verified end-to-end by the test suite and Node demo | WASM |
-| **Go** | 🔵 Planned — the runtime will load any `.wasm`, but TinyGo compilation is not wired into the CLI | WASM (TinyGo) |
-| **C++** | 🟡 Partial — `SharedLibraryModule` loads a `.dylib`/`.so` exporting `crossnative_call`, untested | Native |
-| **Zig** | 🔵 Planned | WASM |
-| **AssemblyScript** | 🔵 Planned | WASM |
-
-Any language that compiles to a `wasm32` binary exporting `cn_alloc`/`cn_free`
-will load today — the runtime is not Rust-specific. What is Rust-specific is the
-CLI's compile step.
-
----
-
-## 📦 Installation
-
-```bash
-npm install react-native-cross-native react-native-nitro-modules
-
-# iOS
-cd ios && pod install
-
-# Android — handled by autolinking
-```
-
-Requirements:
-- React Native 0.73+
-- iOS 13+ / Android API 21+
-- Xcode 14+ / Android Studio Hedgehog+
-
----
-
-## 📖 Documentation
-
-- [Quick Start](QUICK_START.md) — Get running in 5 minutes
-- [Architecture](ARCHITECTURE.md) — How it works under the hood
-- [API Reference](docs/api.md) — Complete API documentation
-- [Examples](examples/) — Working code samples
-- [Contributing](CONTRIBUTING.md) — Development setup
-
----
-
-## 🧪 Examples
-
-### Math Operations
-```tsx
-const Math = useNativeModule({ name: 'math', language: 'rust' });
-const sum = await Math.call('add', [1, 2]); // 3
-```
-
-### Heavy Computation (UI stays responsive!)
-```tsx
-const Matrix = useNativeModule({ name: 'matrix', language: 'rust' });
-
-// 500×500 matrix — runs on separate thread
-const result = await Matrix.call('multiply', [a, b, 500], {
-  priority: 'high',
-});
-```
-
-### Zero-Copy Data Transfer
-```tsx
-// For large arrays — no data copying!
-const buffer = createSharedBuffer(1024 * 1024); // 1MB
-
-await Module.call('processBuffer', [buffer], {
-  zeroCopy: true,
-});
-```
-
-See [examples/rust-math](examples/rust-math/) for complete working app.
-
----
-
-## 🔌 Plugin System
-
-```tsx
-import { ConsolePlugin, PerformancePlugin } from 'react-native-cross-native';
-
-const Module = useNativeModule({
-  name: 'math',
-  language: 'rust',
-  plugins: [
-    ConsolePlugin({ logArgs: true }),
-    PerformancePlugin({ slowThresholdMs: 50 }),
-  ],
-});
-```
-
-**Built-in plugins:**
-- `ConsolePlugin` — Debug logging with timing
-- `PerformancePlugin` — Track slow calls, keep history
-- `SentryPlugin` (planned) — Error tracking
-- `OpenTelemetryPlugin` (planned) — Distributed tracing
-
----
-
-## 🗺 Roadmap
-
-### Phase 1: Foundation (Q2 2026)
-- [x] Nitro-based core architecture
-- [x] WASM runtime for multi-language support
-- [x] Thread pool with priority scheduling
-- [x] TypeScript code generation
-- [ ] Rust compiler integration
-- [ ] npm release
-
-### Phase 2: Multi-Language (Q3 2026)
-- [ ] Go (TinyGo) support
-- [ ] C++ direct bindings
-- [ ] Zig support
-- [ ] AssemblyScript support
-
-### Phase 3: Production Polish (Q4 2026)
-- [ ] Hot reload for native code
-- [ ] VS Code extension
-- [ ] Sentry/OpenTelemetry plugins
-- [ ] Performance profiler
-- [ ] v1.0 release
-
-See [ROADMAP.md](ROADMAP.md) for detailed timeline.
-
----
-
-## 🤝 Contributing
-
-We'd love your help! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
-- Setting up the development environment
-- Adding a new language backend
-- Writing plugins
-- Improving documentation
-
----
-
-## 📄 License
-
-Apache-2.0 — See [LICENSE](LICENSE)
-
----
-
-Built with ❤️ by developers who believe mobile apps shouldn't feel slow.
-
-**[Get Started →](QUICK_START.md)**
+Apache-2.0 — see [LICENSE](LICENSE). Vendored wasm3 is MIT; see
+[packages/nitro-module/wasm3/VENDOR.md](packages/nitro-module/wasm3/VENDOR.md).
