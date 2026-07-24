@@ -1,0 +1,5 @@
+/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/prefab/x86_64/prefab/lib/x86_64-linux-android/cmake/ReactAndroid/ReactAndroidConfig.cmake
+/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/prefab/x86_64/prefab/lib/x86_64-linux-android/cmake/ReactAndroid/ReactAndroidConfigVersion.cmake
+/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/prefab/x86_64/prefab/lib/x86_64-linux-android/cmake/fbjni/fbjniConfig.cmake
+/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/prefab/x86_64/prefab/lib/x86_64-linux-android/cmake/fbjni/fbjniConfigVersion.cmake
+/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/CMakeLists.txt

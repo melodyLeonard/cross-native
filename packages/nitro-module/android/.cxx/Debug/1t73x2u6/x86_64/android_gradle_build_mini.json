@@ -1,0 +1,35 @@
+{
+  "buildFiles": [
+    "/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/prefab/x86_64/prefab/lib/x86_64-linux-android/cmake/ReactAndroid/ReactAndroidConfig.cmake",
+    "/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/prefab/x86_64/prefab/lib/x86_64-linux-android/cmake/ReactAndroid/ReactAndroidConfigVersion.cmake",
+    "/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/prefab/x86_64/prefab/lib/x86_64-linux-android/cmake/fbjni/fbjniConfig.cmake",
+    "/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/prefab/x86_64/prefab/lib/x86_64-linux-android/cmake/fbjni/fbjniConfigVersion.cmake",
+    "/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/melodyleonard/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/melodyleonard/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "crossnative::@6890427a1f51a3e7e1df": {
+      "artifactName": "crossnative",
+      "abi": "x86_64",
+      "output": "/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/build/intermediates/cxx/Debug/1t73x2u6/obj/x86_64/libcrossnative.so",
+      "runtimeFiles": [
+        "/Users/melodyleonard/.gradle/caches/9.3.1/transforms/2b7c23aa4547eb79508e5d3aa3f2bc7a/transformed/react-android-0.86.0-debug/prefab/modules/reactnative/libs/android.x86_64/libreactnative.so",
+        "/Users/melodyleonard/.gradle/caches/9.3.1/transforms/2b7c23aa4547eb79508e5d3aa3f2bc7a/transformed/react-android-0.86.0-debug/prefab/modules/jsi/libs/android.x86_64/libjsi.so",
+        "/Users/melodyleonard/.gradle/caches/9.3.1/transforms/3c01aea05d2737e987399f1309ae090e/transformed/fbjni-0.7.0/prefab/modules/fbjni/libs/android.x86_64/libfbjni.so"
+      ]
+    }
+  }
+}

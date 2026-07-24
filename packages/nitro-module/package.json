@@ -6,13 +6,13 @@
   "react-native": "src/index.ts",
   "files": [
     "src",
-    "lib",
     "android",
     "ios",
     "cpp",
     "jsi",
     "wasm3",
     "*.podspec",
+    "react-native.config.js",
     "README.md"
   ],
   "scripts": {

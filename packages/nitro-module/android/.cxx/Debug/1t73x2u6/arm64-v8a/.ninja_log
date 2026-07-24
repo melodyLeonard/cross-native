@@ -1,0 +1,21 @@
+# ninja log v5
+2832	2881	1784856617078531102	../../../../build/intermediates/cxx/Debug/1t73x2u6/obj/arm64-v8a/libcrossnative.so	93988d0a00d8bdd4
+2	2766	1784856616953115928	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/jsi/CrossNativeJSI.cpp.o	2ae459f8d6c2edfd
+2	2492	1784856616684751993	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/cpp/WasmRuntime.cpp.o	f528ba67883dbd47
+2	1727	1784856615922507970	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/cpp/NativeModule.cpp.o	da227eeb84d3fc0c
+0	244	1784856614450299432	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_compile.c.o	72c4c0320e1b62fa
+0	83	1784856614290897986	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_env.c.o	dcf50e3b0a205e9e
+1	77	1784856614286324530	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_parse.c.o	f0f6695bc110a0a1
+1	2832	1784856617021002414	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/cpp/CrossNative.cpp.o	e92e9dda1bebd58d
+0	71	1784856614280475024	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_api_libc.c.o	ddf4e6f5744407d1
+1	57	1784856614265173084	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_function.c.o	96ea244ded4b18f1
+0	59	1784856614267790064	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_core.c.o	52de7a064ab68b2a
+0	57	1784856614266308624	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_code.c.o	6d9bdb1f22cab2c7
+2	744	1784856614948280371	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/cpp/ThreadPool.cpp.o	84a4d3cef7392e4f
+0	53	1784856614261920390	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_bind.c.o	7ae9f64922122179
+37	1193	1784856615393392704	CMakeFiles/crossnative.dir/src/main/jni/CrossNativeJNI.cpp.o	90faa16312edfdc4
+0	8	0	/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/arm64-v8a/CMakeFiles/cmake.verify_globs	d97d394f7e93a21b
+1	37	1784856614245436739	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_exec.c.o	2dbb31753ea62746
+1	50	1784856614258370717	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_module.c.o	346af4805595806f
+1	49	1784856614255436088	CMakeFiles/crossnative.dir/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/wasm3/m3_info.c.o	9b3eda9e1368cc13
+0	17	0	/Users/melodyleonard/Documents/project/opensource/CrossNativeExample/node_modules/react-native-cross-native/android/.cxx/Debug/1t73x2u6/arm64-v8a/CMakeFiles/cmake.verify_globs	d97d394f7e93a21b
