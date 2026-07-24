@@ -7,16 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(PACKAGE_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(WAMR_ROOT ${PACKAGE_ROOT}/wamr)
 
-# WAMR sources are pinned to the set verified on the host build (interpreter/
-# holds both interpreters, so a glob would double-define symbols), with the
-# darwin platform swapped for android. This configuration is arm64-v8a only —
-# the AOT reloc and trampoline are aarch64-specific, and the .aot CrossNative
-# ships targets aarch64. Other ABIs are excluded below.
-set(WAMR_C_SOURCES
-    ${WAMR_ROOT}/core/iwasm/aot/aot_intrinsic.c
-    ${WAMR_ROOT}/core/iwasm/aot/aot_loader.c
-    ${WAMR_ROOT}/core/iwasm/aot/aot_runtime.c
-    ${WAMR_ROOT}/core/iwasm/aot/arch/aot_reloc_aarch64.c
+# WAMR sources verified on the host build, minus the arch-specific pieces, which
+# are selected per ABI below. Pinned rather than globbed: interpreter/ holds two
+# interpreters that would double-define symbols.
+set(WAMR_BASE_SOURCES
     ${WAMR_ROOT}/core/iwasm/common/wasm_application.c
     ${WAMR_ROOT}/core/iwasm/common/wasm_blocking_op.c
     ${WAMR_ROOT}/core/iwasm/common/wasm_c_api.c
@@ -54,23 +48,53 @@ set(WAMR_C_SOURCES
     ${WAMR_ROOT}/core/shared/utils/bh_vector.c
     ${WAMR_ROOT}/core/shared/utils/runtime_timer.c
 )
-set(WAMR_ASM_SOURCES
-    ${WAMR_ROOT}/core/iwasm/common/arch/invokeNative_aarch64.s
+set(WAMR_AOT_SOURCES
+    ${WAMR_ROOT}/core/iwasm/aot/aot_intrinsic.c
+    ${WAMR_ROOT}/core/iwasm/aot/aot_loader.c
+    ${WAMR_ROOT}/core/iwasm/aot/aot_runtime.c
 )
 
-# WAMR's aarch64 trampoline guards its ELF directives behind BH_PLATFORM_DARWIN
-# (undefined here) and must be preprocessed for the #ifndef to apply.
-# The NDK sets the aarch64 target on the C compiler; the ASM step doesn't
-# inherit it, so pass it through explicitly or the trampoline is (mis)assembled
-# as 32-bit ARM. -x assembler-with-cpp runs the preprocessor for the
-# BH_PLATFORM_DARWIN guard.
-set_source_files_properties(${WAMR_ASM_SOURCES} PROPERTIES
-    LANGUAGE ASM
-    COMPILE_FLAGS "-x assembler-with-cpp --target=aarch64-linux-android${CMAKE_SYSTEM_VERSION} -march=armv8-a")
+# Per-ABI selection. The 64-bit ABIs get the AOT loader (arm64 and x86_64 both
+# have reloc + trampoline and are the common device/emulator arches). The 32-bit
+# ABIs run the interpreter only, with the portable native-call trampoline — the
+# interpreter is architecture-independent, so the same .wasm runs on all of them.
+if(ANDROID_ABI STREQUAL "arm64-v8a")
+    set(WAMR_TRAMPOLINE ${WAMR_ROOT}/core/iwasm/common/arch/invokeNative_aarch64.s)
+    set(WAMR_ARCH_SOURCES ${WAMR_AOT_SOURCES} ${WAMR_ROOT}/core/iwasm/aot/arch/aot_reloc_aarch64.c)
+    set(WAMR_ABI_DEFS WASM_ENABLE_AOT=1 WASM_ENABLE_AOT_INTRINSICS=1 WASM_ENABLE_QUICK_AOT_ENTRY=1 BUILD_TARGET_AARCH64 "BUILD_TARGET=\"aarch64v8\"")
+    set(WAMR_ASM_TARGET aarch64-linux-android${CMAKE_SYSTEM_VERSION})
+    set(WAMR_ASM_MARCH armv8-a)
+elseif(ANDROID_ABI STREQUAL "x86_64")
+    set(WAMR_TRAMPOLINE ${WAMR_ROOT}/core/iwasm/common/arch/invokeNative_em64.s)
+    set(WAMR_ARCH_SOURCES ${WAMR_AOT_SOURCES} ${WAMR_ROOT}/core/iwasm/aot/arch/aot_reloc_x86_64.c)
+    set(WAMR_ABI_DEFS WASM_ENABLE_AOT=1 WASM_ENABLE_AOT_INTRINSICS=1 WASM_ENABLE_QUICK_AOT_ENTRY=1 BUILD_TARGET_X86_64 "BUILD_TARGET=\"X86_64\"")
+    set(WAMR_ASM_TARGET x86_64-linux-android${CMAKE_SYSTEM_VERSION})
+    set(WAMR_ASM_MARCH x86-64)
+else()
+    # armeabi-v7a, x86: interpreter only.
+    set(WAMR_TRAMPOLINE ${WAMR_ROOT}/core/iwasm/common/arch/invokeNative_general.c)
+    set(WAMR_ARCH_SOURCES "")
+    if(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(WAMR_ABI_DEFS WASM_ENABLE_AOT=0 BUILD_TARGET_ARM "BUILD_TARGET=\"ARM\"")
+    else()
+        set(WAMR_ABI_DEFS WASM_ENABLE_AOT=0 BUILD_TARGET_X86_32 "BUILD_TARGET=\"X86_32\"")
+    endif()
+    set(WAMR_ASM_TARGET "")
+endif()
+
+# The .s trampolines guard ELF-only directives behind BH_PLATFORM_DARWIN
+# (undefined here) and must be preprocessed; the NDK's ASM step also doesn't
+# inherit the C compiler's target, so pass it explicitly.
+if(WAMR_TRAMPOLINE MATCHES "\\.s$")
+    set_source_files_properties(${WAMR_TRAMPOLINE} PROPERTIES
+        LANGUAGE ASM
+        COMPILE_FLAGS "-x assembler-with-cpp --target=${WAMR_ASM_TARGET} -march=${WAMR_ASM_MARCH}")
+endif()
 
 add_library(crossnative SHARED
-    ${WAMR_C_SOURCES}
-    ${WAMR_ASM_SOURCES}
+    ${WAMR_BASE_SOURCES}
+    ${WAMR_TRAMPOLINE}
+    ${WAMR_ARCH_SOURCES}
     ${PACKAGE_ROOT}/cpp/CrossNative.cpp
     ${PACKAGE_ROOT}/cpp/WasmRuntime.cpp
     ${PACKAGE_ROOT}/cpp/NativeModule.cpp
@@ -79,7 +103,7 @@ add_library(crossnative SHARED
     src/main/jni/CrossNativeJNI.cpp
 )
 
-target_compile_definitions(crossnative PRIVATE BH_MALLOC=wasm_runtime_malloc BH_FREE=wasm_runtime_free BH_PLATFORM_ANDROID BUILD_TARGET_AARCH64 BUILD_TARGET="aarch64v8" WASM_ENABLE_INTERP=1 WASM_ENABLE_FAST_INTERP=1 WASM_ENABLE_AOT=1 WASM_ENABLE_AOT_INTRINSICS=1 WASM_ENABLE_QUICK_AOT_ENTRY=1 WASM_ENABLE_LIBC_BUILTIN=1 WASM_ENABLE_BULK_MEMORY=1 WASM_ENABLE_REF_TYPES=1 WASM_ENABLE_SIMD=0 WASM_ENABLE_SHRUNK_MEMORY=1 WASM_ENABLE_MULTI_MODULE=0 WASM_ENABLE_SHARED_MEMORY=0 WASM_ENABLE_MINI_LOADER=0 WASM_ENABLE_EXTENDED_CONST_EXPR=0 WASM_DISABLE_HW_BOUND_CHECK=1 WASM_DISABLE_STACK_HW_BOUND_CHECK=1 WASM_DISABLE_WAKEUP_BLOCKING_OP=0 WASM_HAVE_MREMAP=0 WASM_GLOBAL_HEAP_SIZE=10485760)
+target_compile_definitions(crossnative PRIVATE BH_MALLOC=wasm_runtime_malloc BH_FREE=wasm_runtime_free BH_PLATFORM_ANDROID WASM_ENABLE_INTERP=1 WASM_ENABLE_FAST_INTERP=1 WASM_ENABLE_LIBC_BUILTIN=1 WASM_ENABLE_BULK_MEMORY=1 WASM_ENABLE_REF_TYPES=1 WASM_ENABLE_SIMD=0 WASM_ENABLE_SHRUNK_MEMORY=1 WASM_ENABLE_MULTI_MODULE=0 WASM_ENABLE_SHARED_MEMORY=0 WASM_ENABLE_MINI_LOADER=0 WASM_ENABLE_EXTENDED_CONST_EXPR=0 WASM_DISABLE_HW_BOUND_CHECK=1 WASM_DISABLE_STACK_HW_BOUND_CHECK=1 WASM_DISABLE_WAKEUP_BLOCKING_OP=0 WASM_HAVE_MREMAP=0 WASM_GLOBAL_HEAP_SIZE=10485760 ${WAMR_ABI_DEFS})
 
 target_include_directories(crossnative PRIVATE
     ${PACKAGE_ROOT}/cpp
