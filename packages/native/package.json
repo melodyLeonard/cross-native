@@ -13,7 +13,8 @@
     "wasm3",
     "*.podspec",
     "react-native.config.js",
-    "README.md"
+    "README.md",
+    "metro-transformer.js"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -47,7 +48,8 @@
     "@typescript-eslint/parser": "^7.0.0"
   },
   "dependencies": {
-    "@cross-native/core": "*"
+    "@cross-native/core": "*",
+    "@cross-native/compiler": "*"
   },
   "peerDependencies": {
     "react": "^18.2.0",
