@@ -267,18 +267,64 @@ pub fn crossnative(_attr: TokenStream, item: TokenStream) -> TokenStream {
         returns.wire_name()
     );
 
+    // Native path: decode JSON args, call the function, encode the result.
+    // This mirrors the WASM shim but for the module compiled as a linked static
+    // library (iOS), where there is no linear memory to marshal through.
+    let mut native_decode = Vec::new();
+    let mut native_args = Vec::new();
+    for (index, param) in params.iter().enumerate() {
+        let name = &param.name;
+        match &param.kind {
+            Kind::Scalar(scalar) => {
+                let ty = format_ident!("{}", scalar);
+                native_decode.push(quote!(let #name = ::crossnative::native::arg_scalar::<#ty>(args, #index)?;));
+                native_args.push(quote!(#name));
+            }
+            Kind::Slice { elem, owned } => {
+                let ty = format_ident!("{}", elem);
+                native_decode.push(quote!(let #name = ::crossnative::native::arg_vec::<#ty>(args, #index)?;));
+                native_args.push(if *owned { quote!(#name) } else { quote!(&#name) });
+            }
+            Kind::Text { owned } => {
+                native_decode.push(quote!(let #name = ::crossnative::native::arg_string(args, #index)?;));
+                native_args.push(if *owned { quote!(#name) } else { quote!(#name.as_str()) });
+            }
+            Kind::Unit => {}
+        }
+    }
+
+    let native_call = match &returns {
+        Kind::Unit => quote!({ #name(#(#native_args),*); Ok(::crossnative::native::encode_void()) }),
+        _ => quote!(Ok(::crossnative::native::encode(#name(#(#native_args),*)))),
+    };
+
     quote! {
         #function
 
+        #[cfg(target_arch = "wasm32")]
         #[export_name = #export]
         pub extern "C" fn #shim(#(#signature),*) #return_type {
             #(#prologue)*
             #body_tail
         }
 
+        #[cfg(target_arch = "wasm32")]
         #[export_name = #meta_export]
         pub extern "C" fn #meta_shim() -> u64 {
             ::crossnative::pack_str(#metadata)
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        ::crossnative::inventory::submit! {
+            ::crossnative::native::Function {
+                name: #export,
+                manifest: #metadata,
+                invoke: |args: &[::crossnative::native::Value]|
+                    -> ::core::result::Result<::crossnative::native::Value, ::std::string::String> {
+                    #(#native_decode)*
+                    #native_call
+                },
+            }
         }
     }
     .into()

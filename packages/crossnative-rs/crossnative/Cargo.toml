@@ -7,3 +7,10 @@ description = "Write plain Rust, call it from JavaScript off the UI thread"
 
 [dependencies]
 crossnative-macro = { path = "../crossnative-macro", version = "0.1.0" }
+
+# Native (FFI) builds — iOS/Android static libraries linked into the app.
+# Not pulled into wasm32 builds, which stay dependency-free and tiny.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+inventory = "0.3"
+serde = "1"
+serde_json = "1"

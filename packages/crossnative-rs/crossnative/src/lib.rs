@@ -31,6 +31,17 @@ use std::alloc::{alloc, dealloc, Layout};
 
 pub use crossnative_macro::crossnative;
 
+// Native (FFI) path: the module compiled as a static library and linked into
+// the app. Present only for non-wasm targets; re-exports the runtime the macro
+// generates against (inventory, argument decoding).
+#[cfg(not(target_arch = "wasm32"))]
+pub mod native;
+
+// Re-exported so #[crossnative]-generated code can reference it without the
+// user adding it as a dependency.
+#[cfg(not(target_arch = "wasm32"))]
+pub use inventory;
+
 /// Alignment for every host-facing allocation. Eight bytes so that `f64` and
 /// `i64` buffers are always correctly aligned, whatever the element type.
 pub const ALIGN: usize = 8;
