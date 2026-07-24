@@ -73,6 +73,26 @@ void ensureRuntimeInit() {
     g_runtimeInitialised.store(true, std::memory_order_release);
 }
 
+// ─── Per-thread environment ───────────────────────────────────────────────
+// With hardware bounds checking enabled, WAMR installs a per-thread signal
+// handler and expects every OS thread that executes WASM to have called
+// wasm_runtime_init_thread_env(). Our thread pool runs calls on arbitrary
+// workers, so each one initialises its environment on first use and tears it
+// down when the thread exits.
+
+void ensureThreadEnv() {
+    struct ThreadEnvGuard {
+        bool owned = false;
+        ~ThreadEnvGuard() { if (owned) wasm_runtime_destroy_thread_env(); }
+    };
+    static thread_local ThreadEnvGuard guard;
+
+    if (!guard.owned && !wasm_runtime_thread_env_inited()) {
+        wasm_runtime_init_thread_env();
+        guard.owned = true; // this thread owns the env; destroy it on exit
+    }
+}
+
 // ─── Element type helpers (unchanged from wasm3 backend) ──────────────────
 
 enum class ElemKind { F64, F32, I32, U32, I64, U64, I8, U8, I16, U16 };
@@ -627,6 +647,7 @@ struct WasmRuntime::Impl {
 
 WasmRuntime::WasmRuntime() : pImpl(std::make_unique<Impl>()) {
     ensureRuntimeInit();
+    ensureThreadEnv();
 }
 
 WasmRuntime::~WasmRuntime() = default;
@@ -703,6 +724,8 @@ void WasmRuntime::unloadModule(const std::string& moduleId) {
 std::string WasmRuntime::call(const std::string& moduleId,
                                const std::string& functionName,
                                const std::string& argsJson) {
+    ensureThreadEnv();
+
     // ── Find module ──
     std::shared_ptr<ModuleEntry> entry;
     {

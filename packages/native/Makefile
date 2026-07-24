@@ -13,9 +13,9 @@ WAMR_ROOT = wamr
 # Feature defines — both the cmake-style WAMR_BUILD_ and the internal WASM_ENABLE_ prefixes.
 WAMR_DEFS = \
 	-DBH_MALLOC=wasm_runtime_malloc -DBH_FREE=wasm_runtime_free \
-	-DBH_PLATFORM_DARWIN -DBUILD_TARGET_AARCH64 \
+	-DBH_PLATFORM_DARWIN -DBUILD_TARGET_AARCH64 -DBUILD_TARGET=\"aarch64v8\" \
 	-DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_FAST_INTERP=1 \
-	-DWASM_ENABLE_AOT=0 \
+	-DWASM_ENABLE_AOT=1 -DWASM_ENABLE_AOT_INTRINSICS=1 -DWASM_ENABLE_QUICK_AOT_ENTRY=1 \
 	-DWASM_ENABLE_LIBC_BUILTIN=1 -DWASM_ENABLE_BULK_MEMORY=1 -DWASM_ENABLE_REF_TYPES=1 \
 	-DWASM_ENABLE_SIMD=0 -DWASM_ENABLE_SHRUNK_MEMORY=1 \
 	-DWASM_ENABLE_MULTI_MODULE=0 -DWASM_ENABLE_SHARED_MEMORY=0 -DWASM_ENABLE_MINI_LOADER=0 \
@@ -27,6 +27,7 @@ WAMR_DEFS = \
 WAMR_INC = \
 	-I$(WAMR_ROOT)/core/iwasm/include \
 	-I$(WAMR_ROOT)/core/iwasm/interpreter \
+	-I$(WAMR_ROOT)/core/iwasm/aot \
 	-I$(WAMR_ROOT)/core/iwasm/common \
 	-I$(WAMR_ROOT)/core/iwasm/libraries/libc-builtin \
 	-I$(WAMR_ROOT)/core/shared/include \
@@ -48,7 +49,11 @@ else
 endif
 
 WAMR_SOURCES = \
-	$(WAMR_ROOT)/core/iwasm/common/arch/invokeNative_general.c \
+	$(WAMR_ROOT)/core/iwasm/aot/aot_intrinsic.c \
+	$(WAMR_ROOT)/core/iwasm/aot/aot_loader.c \
+	$(WAMR_ROOT)/core/iwasm/aot/aot_runtime.c \
+	$(WAMR_ROOT)/core/iwasm/aot/arch/aot_reloc_aarch64.c \
+	$(WAMR_ROOT)/core/iwasm/common/arch/invokeNative_aarch64.s \
 	$(WAMR_ROOT)/core/iwasm/common/wasm_application.c \
 	$(WAMR_ROOT)/core/iwasm/common/wasm_blocking_op.c \
 	$(WAMR_ROOT)/core/iwasm/common/wasm_c_api.c \
@@ -110,7 +115,7 @@ all: libcrossnative.a
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 %.o: %.s
-	$(CC) -c $< -o $@
+	$(CC) -x assembler-with-cpp -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk $(WAMR_DEFS) -c $< -o $@
 
 libcrossnative.a: $(WAMR_OBJECTS) $(CROSSNATIVE_OBJECTS)
 	ar rcs $@ $^
@@ -140,8 +145,19 @@ wasm: $(WASM_TARGET)
 check: test_runner $(WASM_TARGET)
 	./test_runner $(WASM_TARGET)
 
+# AOT verification. Provide the WAMR AOT compiler via WAMRC (see
+# packages/compiler for automatic acquisition). The software-bounds + no-SIMD
+# flags match the runtime's build configuration.
+WAMRC ?= wamrc
+AOT_TARGET = build/compute.aot
+$(AOT_TARGET): $(WASM_TARGET)
+	$(WAMRC) --target=aarch64v8 --bounds-checks=1 --disable-simd -o $@ $(WASM_TARGET)
+
+check-aot: test_runner $(AOT_TARGET)
+	./test_runner $(AOT_TARGET)
+
 clean:
 	rm -f $(WAMR_OBJECTS) $(CROSSNATIVE_OBJECTS) libcrossnative.a libcrossnative.so test_runner crossnative-host
 	rm -rf build
 
-.PHONY: all clean check wasm host
+.PHONY: all clean check check-aot wasm host
