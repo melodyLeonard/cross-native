@@ -7,7 +7,7 @@
  * without building a React Native app.
  *
  * Build the binary with:
- *   make -C packages/nitro-module crossnative-host
+ *   make -C packages/native crossnative-host
  */
 
 import type { Backend, CallResponse, LoadedModule, ModuleSource } from './backend.ts';
@@ -27,7 +27,7 @@ interface PendingCall {
 }
 
 const HOST_BINARY = 'crossnative-host';
-const HOST_RELATIVE_PATH = ['packages', 'nitro-module', HOST_BINARY];
+const HOST_RELATIVE_PATH = ['packages', 'native', HOST_BINARY];
 
 export class NodeHostBackend implements Backend {
   readonly name = 'node-host';
@@ -55,7 +55,7 @@ export class NodeHostBackend implements Backend {
     if (!hostPath) {
       throw new BackendError(
         `Could not find the ${HOST_BINARY} binary. Build it with ` +
-        `"make -C packages/nitro-module crossnative-host", or set ` +
+        `"make -C packages/native crossnative-host", or set ` +
         `CROSSNATIVE_HOST to its path.`
       );
     }

@@ -15,8 +15,8 @@ target/
 *.a
 *.so
 *.dylib
-packages/nitro-module/test_runner
-packages/nitro-module/crossnative-host
+packages/native/test_runner
+packages/native/crossnative-host
 
 # Gradle
 .gradle/

@@ -68,7 +68,7 @@ dependencies, and its TypeScript runs directly on Node via type stripping.
 Individual suites:
 
 ```bash
-npm run test:native   # C++ core (packages/nitro-module/test)
+npm run test:native   # C++ core (packages/native/test)
 npm run test:core     # TypeScript API (packages/core/test)
 ```
 
@@ -226,7 +226,7 @@ packages/
 │   ├── src/bridge/       backends, argument marshalling
 │   ├── src/plugins/      console, performance
 │   └── test/             integration suite
-└── nitro-module/         native core
+└── native/         native core
     ├── cpp/              CrossNative, WasmRuntime, ThreadPool, NativeModule
     ├── jsi/              JSI binding, shared by both platforms
     ├── ios/              module that installs the proxy
@@ -256,4 +256,4 @@ packages/
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE). Vendored wasm3 is MIT; see
-[packages/nitro-module/wasm3/VENDOR.md](packages/nitro-module/wasm3/VENDOR.md).
+[packages/native/wasm3/VENDOR.md](packages/native/wasm3/VENDOR.md).

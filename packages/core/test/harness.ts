@@ -9,16 +9,16 @@ import { join } from 'node:path';
 
 const REPO_ROOT = join(import.meta.dirname, '..', '..', '..');
 
-/** Compiled test fixture, produced by `make -C packages/nitro-module wasm`. */
+/** Compiled test fixture, produced by `make -C packages/native wasm`. */
 export const WASM_FIXTURE = join(
   REPO_ROOT,
-  'packages/nitro-module/build/compute.wasm'
+  'packages/native/build/compute.wasm'
 );
 
-/** Host binary, produced by `make -C packages/nitro-module crossnative-host`. */
+/** Host binary, produced by `make -C packages/native crossnative-host`. */
 export const HOST_BINARY = join(
   REPO_ROOT,
-  'packages/nitro-module/crossnative-host'
+  'packages/native/crossnative-host'
 );
 
 let passed = 0;

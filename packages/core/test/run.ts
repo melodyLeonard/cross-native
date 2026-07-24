@@ -9,7 +9,7 @@
  *
  * or directly:
  *
- *   make -C packages/nitro-module crossnative-host wasm
+ *   make -C packages/native crossnative-host wasm
  *   node --experimental-strip-types packages/core/test/run.ts
  */
 
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
   const compute = await createNativeModule(
     {
       name: 'compute',
-      source: 'packages/nitro-module/test/fixtures/compute/src/lib.rs',
+      source: 'packages/native/test/fixtures/compute/src/lib.rs',
       artifact: WASM_FIXTURE,
       language: 'rust',
       plugins: [PerformancePlugin({ slowThresholdMs: 250 })],
