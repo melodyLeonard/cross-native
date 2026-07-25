@@ -1,6 +1,6 @@
 {
   "name": "react-native-cross-native",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "CrossNative - run compiled languages off the JS thread via JSI + WASM",
   "main": "src/index.ts",
   "react-native": "src/index.ts",
