@@ -1,28 +1,16 @@
-/**
- * C and C++ compile drivers.
- *
- * Both go through Zig's bundled clang (`zig cc` / `zig c++`), so the single Zig
- * toolchain that CrossNative already uses for `.zig` also covers C and C++ — no
- * emscripten, no separate wasi-sdk. The target is a WASI *reactor* module: it
- * links libc/libm (so <math.h>, <vector>, etc. work) but has no `_start` and no
- * argument/exit imports, which keeps pure-compute modules import-free and lets
- * the runtime load them like any other `.wasm`.
- */
-
 import { join } from 'node:path';
 import { run } from '../toolchain.ts';
 import type { CompileRequest, CompileResult } from '../types.ts';
 
-/** Zig drives clang; CROSSNATIVE_ZIG overrides the binary (see the zig driver). */
+// C and C++ go through zig cc / zig c++, so they share the zig toolchain.
 function resolveZig(): string {
   return process.env.CROSSNATIVE_ZIG ?? 'zig';
 }
 
-/** Flags shared by C and C++: reactor model, keep exports, optimise for speed. */
 const COMMON = [
   '--target=wasm32-wasi',
-  '-mexec-model=reactor',   // exports, no _start / no argv/exit imports
-  '-Wl,--export-dynamic',   // keep exported symbols visible
+  '-mexec-model=reactor',
+  '-Wl,--export-dynamic',
   '-O3',
 ];
 
@@ -51,7 +39,5 @@ export function compileC(request: CompileRequest): Promise<CompileResult> {
 }
 
 export function compileCpp(request: CompileRequest): Promise<CompileResult> {
-  // -w silences libc++ header nullability warnings; no exceptions/rtti keeps the
-  // module small and avoids the unwinder.
   return compileClang(request, 'c++', 'main.cpp', ['-fno-exceptions', '-fno-rtti', '-w']);
 }

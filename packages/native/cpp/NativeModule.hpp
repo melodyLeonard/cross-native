@@ -90,10 +90,9 @@ public:
   SharedLibraryModule(const std::string& id, const std::string& libraryPath);
 
   /// Resolve crossnative_call from the app itself (RTLD_DEFAULT), for a static
-  /// library linked into the binary — the iOS path, where dlopen of arbitrary
-  /// code is forbidden. `Linked` selects this overload. `suffix` disambiguates
-  /// the entry symbols when more than one language is linked into one app: Rust
-  /// exports `crossnative_call` (empty suffix), Zig `crossnative_call_zig`, etc.
+  /// library linked into the binary (the iOS path, where dlopen is forbidden).
+  /// `suffix` disambiguates entry symbols when several languages are linked:
+  /// Rust uses crossnative_call, Zig crossnative_call_zig.
   struct Linked { std::string suffix; };
   SharedLibraryModule(const std::string& id, Linked linked);
 

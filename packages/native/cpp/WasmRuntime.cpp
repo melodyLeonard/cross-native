@@ -674,17 +674,10 @@ bool WasmRuntime::loadModule(const std::string& moduleId,
     }
 
 #if WASM_ENABLE_LIBC_WASI != 0
-    // Modules compiled for WASI (C/C++ via `zig cc`, Go via wasip1) import
-    // wasi_snapshot_preview1. Give them an empty sandbox — no preopened dirs,
-    // no args, no env — which is enough for pure computation and grants no
-    // filesystem access. On non-WASI modules (Rust, freestanding Zig) this is
-    // stored but never used, because instantiation only sets up WASI when the
-    // module actually imports it.
-    wasm_runtime_set_wasi_args(entry->module,
-                               nullptr, 0,   // preopened dirs
-                               nullptr, 0,   // mapped dirs
-                               nullptr, 0,   // environment
-                               nullptr, 0);  // argv
+    // Empty WASI sandbox (no dirs/args/env) for modules that import WASI (Go, C,
+    // C++). A no-op for the others.
+    wasm_runtime_set_wasi_args(entry->module, nullptr, 0, nullptr, 0,
+                               nullptr, 0, nullptr, 0);
 #endif
 
     // Instantiate with a heap so cn_alloc / cn_free work.
@@ -708,11 +701,8 @@ bool WasmRuntime::loadModule(const std::string& moduleId,
         return false;
     }
 
-    // WASI *reactor* modules export `_initialize` (global constructors, and for
-    // Go the runtime/scheduler bring-up) instead of `_start`. WAMR already runs
-    // it during instantiation via execute_post_instantiate_functions, so we must
-    // not call it again — Go in particular aborts with "randinit twice" if its
-    // runtime is initialized more than once.
+    // Note: WAMR runs a reactor module's _initialize during instantiation, so we
+    // don't call it here. Go aborts with "randinit twice" if it runs twice.
 
     // Enumerate exports to fill entry->functions.
     {

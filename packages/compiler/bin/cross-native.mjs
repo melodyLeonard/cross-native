@@ -129,16 +129,9 @@ async function build({ dir, flags }) {
   log(`  embedded  ${out}  (${size.toLocaleString()} bytes)`);
 }
 
-/**
- * Build a native static library for the iOS linked-FFI path.
- *
- *   cross-native build-native <dir> --language zig --entry compute.zig \
- *     --symbol _zig --target aarch64-ios-simulator --out path/to/lib.a
- *
- * Compiles the source (via a generated dispatch shim) to a `.a` exporting
- * crossnative_call<symbol> / crossnative_manifest<symbol>, ready to -force_load
- * into the app. Currently supports Zig.
- */
+// Build a native static library for the iOS linked-FFI path (Zig only for now):
+//   cross-native build-native <dir> --language zig --entry compute.zig \
+//     --symbol _zig --target aarch64-ios-simulator --out path/to/lib.a
 async function buildNative({ dir, flags }) {
   const sourceDir = resolve(dir);
   const language = flags.language ?? 'zig';

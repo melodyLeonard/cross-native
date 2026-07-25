@@ -68,10 +68,8 @@ SharedLibraryModule::SharedLibraryModule(const std::string& id,
 
 SharedLibraryModule::SharedLibraryModule(const std::string& id, Linked linked)
     : id_(id), libraryPath_("<linked>") {
-  // The static library is linked into the app, so its symbols live in the main
-  // image rather than a loadable file. RTLD_DEFAULT searches everything already
-  // loaded — no dlopen, which iOS forbids for arbitrary code. The suffix lets
-  // several linked languages coexist (crossnative_call, crossnative_call_zig…).
+  // Linked symbols live in the main image; RTLD_DEFAULT finds them without
+  // dlopen (which iOS forbids). The suffix keeps languages from colliding.
   const std::string callName = "crossnative_call" + linked.suffix;
   const std::string manifestName = "crossnative_manifest" + linked.suffix;
 

@@ -46,8 +46,7 @@ export const LANGUAGES: readonly LanguageDefinition[] = [
     extensions: ['.go'],
     support: 'experimental',
     artifact: 'wasm',
-    // Plain Go (no TinyGo): `GOOS=wasip1 GOARCH=wasm go build`. Needs a Go with
-    // the //go:wasmexport directive — 1.24+. CROSSNATIVE_GO overrides the binary.
+    // Plain Go (no TinyGo), needs 1.24+ for //go:wasmexport.
     toolchain: [
       {
         id: 'go',
@@ -68,9 +67,6 @@ export const LANGUAGES: readonly LanguageDefinition[] = [
       {
         id: 'zig',
         label: 'Zig',
-        // CROSSNATIVE_ZIG overrides the binary, mirroring how the Rust driver
-        // finds wamrc — so a project can point at a vendored toolchain without a
-        // system-wide install.
         probe: [process.env.CROSSNATIVE_ZIG ?? 'zig', 'version'],
         installUrl: 'https://ziglang.org/download/',
         installHint: 'Install Zig from https://ziglang.org/download/, ' +
@@ -103,8 +99,7 @@ export const LANGUAGES: readonly LanguageDefinition[] = [
     extensions: ['.c'],
     support: 'experimental',
     artifact: 'wasm',
-    // C is compiled by Zig's bundled clang (`zig cc`), so it shares the Zig
-    // toolchain — no separate wasi-sdk or emscripten install.
+    // Compiled via `zig cc`, so it shares the Zig toolchain.
     toolchain: [
       {
         id: 'zig',
@@ -122,7 +117,7 @@ export const LANGUAGES: readonly LanguageDefinition[] = [
     extensions: ['.cc', '.cpp', '.cxx'],
     support: 'experimental',
     artifact: 'wasm',
-    // Same story as C: `zig c++` gives a WASI-reactor wasm with libc++ linked.
+    // Compiled via `zig c++`.
     toolchain: [
       {
         id: 'zig',

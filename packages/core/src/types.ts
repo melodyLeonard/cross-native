@@ -137,11 +137,7 @@ export interface NativeModuleConfig {
    */
   linked?: boolean;
 
-  /**
-   * Entry-symbol suffix for the linked library, so several linked languages can
-   * coexist in one app: Rust uses "" (crossnative_call), Zig "_zig", etc.
-   * Only meaningful with `linked`.
-   */
+  /** Entry-symbol suffix for the linked library (Rust "", Zig "_zig"). */
   linkedSymbol?: string;
 
   /** Language backend */

@@ -37,8 +37,7 @@ export interface CallResponse {
 export type ModuleSource =
   | { kind: 'path'; path: string }
   | { kind: 'bytes'; bytes: Uint8Array }
-  /** A static library linked into the app (iOS native FFI). `symbol` is the
-   *  entry-point suffix when several languages are linked (e.g. "_zig"). */
+  /** A static library linked into the app (iOS). `symbol` is the entry suffix. */
   | { kind: 'linked'; symbol?: string };
 
 /** What a backend reports after loading a module. */
