@@ -72,8 +72,10 @@ WAMR_INC = \
 	-I$(WAMR_ROOT)/core/shared/utils \
 	-I$(WAMR_ROOT)/core/shared/utils/uncommon
 
-CFLAGS   = -O3 -fPIC -I. -Icpp $(WAMR_INC) $(WAMR_DEFS) -std=c11
-CXXFLAGS = -O3 -fPIC -I. -Icpp $(WAMR_INC) $(WAMR_DEFS) -std=c++17
+# gnu dialects: WAMR's x86_64 AOT runtime uses the `asm` keyword, which strict
+# -std=c11 rejects (it's guarded out on arm64, so only x86_64 hits it).
+CFLAGS   = -O3 -fPIC -I. -Icpp $(WAMR_INC) $(WAMR_DEFS) -std=gnu11
+CXXFLAGS = -O3 -fPIC -I. -Icpp $(WAMR_INC) $(WAMR_DEFS) -std=gnu++17
 
 WAMR_SOURCES = \
 	$(WAMR_ROOT)/core/iwasm/aot/aot_intrinsic.c \
