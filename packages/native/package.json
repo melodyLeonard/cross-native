@@ -19,8 +19,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts,.tsx",
     "clean": "rm -rf lib",
-    "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm run build"
+    "build": "tsc -p tsconfig.build.json"
   },
   "keywords": [
     "react-native",

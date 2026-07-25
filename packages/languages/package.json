@@ -19,7 +19,6 @@
     "url": "https://github.com/melodyLeonard/cross-native.git"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm run build"
+    "build": "tsc -p tsconfig.build.json"
   }
 }

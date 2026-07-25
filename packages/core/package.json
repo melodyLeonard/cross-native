@@ -10,8 +10,7 @@
     "test": "jest",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm run build"
+    "build": "tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
