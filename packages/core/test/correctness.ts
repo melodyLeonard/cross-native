@@ -93,7 +93,7 @@ async function testLanguageValidation(): Promise<void> {
       )
   );
 
-  await load('go').then(
+  await load('assemblyscript').then(
     () => check('planned language is rejected', false, 'it loaded'),
     (error: Error) =>
       check(

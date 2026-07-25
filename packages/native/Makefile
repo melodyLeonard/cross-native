@@ -22,7 +22,10 @@ ifeq ($(UNAME_S),Darwin)
   SDK_ISYSROOT  = -isysroot $(shell xcrun --sdk macosx --show-sdk-path)
   LDFLAGS       = -lpthread
 else
-  PLATFORM_DEF  = -DBH_PLATFORM_LINUX
+  # _GNU_SOURCE exposes pthread_rwlock_t, pthread_condattr_setclock and
+  # CLOCK_MONOTONIC on glibc, which the WAMR posix layer needs (macOS exposes
+  # them by default).
+  PLATFORM_DEF  = -DBH_PLATFORM_LINUX -D_GNU_SOURCE
   PLATFORM_DIR  = linux
   SDK_ISYSROOT  =
   LDFLAGS       = -lpthread -ldl
