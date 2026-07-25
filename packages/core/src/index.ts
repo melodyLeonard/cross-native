@@ -63,12 +63,10 @@ export type {
   NativeLanguage,
   FunctionSignature,
   SignatureParam,
-  NativeFunction,
   CallOptions,
   Plugin,
   CallContext,
   PerformanceMetrics,
-  Parameter,
 } from './types.ts';
 
 // Error types

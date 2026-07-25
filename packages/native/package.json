@@ -1,6 +1,6 @@
 {
   "name": "react-native-cross-native",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "CrossNative - run compiled languages off the JS thread via JSI + WASM",
   "main": "dist/index.js",
   "files": [
@@ -48,8 +48,8 @@
     "@typescript-eslint/parser": "^7.0.0"
   },
   "dependencies": {
-    "@cross-native/core": "0.1.0-alpha.4",
-    "@cross-native/compiler": "0.1.0-alpha.4"
+    "@cross-native/core": "0.1.0-alpha.5",
+    "@cross-native/compiler": "0.1.0-alpha.5"
   },
   "peerDependencies": {
     "react": ">=18.2.0",
@@ -62,5 +62,6 @@
     "react-native": {
       "optional": false
     }
-  }
+  },
+  "types": "dist/index.d.ts"
 }

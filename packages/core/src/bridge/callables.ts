@@ -8,6 +8,7 @@
  */
 
 import type { CallOptions, FunctionSignature, NativeFunction } from '../types.ts';
+import type { NativeArg } from './buffers.ts';
 
 /** Convert a Rust `snake_case` name to the `camelCase` JavaScript expects. */
 export function toCamelCase(name: string): string {
@@ -23,7 +24,7 @@ function validate(
   type: string,
   functionName: string,
   paramName: string
-): unknown {
+): NativeArg {
   const fail = (expected: string): never => {
     throw new TypeError(
       `${functionName}(${paramName}): expected ${expected}, got ${typeof value}`
@@ -53,7 +54,7 @@ function validate(
  */
 export function buildCallables(
   manifest: FunctionSignature[],
-  invoke: (name: string, args: unknown[], options?: CallOptions) => Promise<unknown>
+  invoke: (name: string, args: NativeArg[], options?: CallOptions) => Promise<unknown>
 ): Record<string, NativeFunction> {
   const callables: Record<string, NativeFunction> = {};
 
@@ -68,7 +69,7 @@ export function buildCallables(
         );
       }
 
-      let marshalled: unknown[];
+      let marshalled: NativeArg[];
       try {
         marshalled = signature.params.map((param, i) =>
           validate(args[i], param.type, signature.name, param.name)

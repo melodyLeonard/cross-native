@@ -70,30 +70,6 @@ export interface NativeModule {
   dispose(): void;
 }
 
-export interface NativeFunction {
-  /** Function name */
-  name: string;
-  
-  /** Parameter types */
-  parameters: Parameter[];
-  
-  /** Return type */
-  returnType: string;
-  
-  /** Whether this function runs async (default: true for safety) */
-  isAsync: boolean;
-  
-  /** Estimated execution time in ms (for scheduling) */
-  estimatedTime?: number;
-}
-
-export interface Parameter {
-  name: string;
-  type: string;
-  optional: boolean;
-  defaultValue?: unknown;
-}
-
 export interface CallOptions {
   /** Thread priority */
   priority?: 'immediate' | 'high' | 'normal' | 'low';

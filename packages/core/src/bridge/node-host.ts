@@ -148,6 +148,9 @@ export class NodeHostBackend implements Backend {
   async load(moduleId: string, language: string, source: ModuleSource): Promise<LoadedModule> {
     // The host loads from a path, so in-memory modules are staged to a temp
     // file. On device the JSI backend hands the bytes over directly.
+    if (source.kind === 'linked') {
+      throw new BackendError('The node host cannot load linked modules; use bytes or a path');
+    }
     const path = source.kind === 'path'
       ? source.path
       : await writeTempModule(moduleId, source.bytes);

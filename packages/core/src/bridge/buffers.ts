@@ -34,7 +34,7 @@ export interface InOutBuffer {
 export type BufferArg = InBuffer | OutBuffer | InOutBuffer;
 
 /** A value that can be passed to a native function. */
-export type NativeArg = number | boolean | BufferArg | ArrayLike<number>;
+export type NativeArg = number | boolean | string | BufferArg | ArrayLike<number>;
 
 /**
  * Pass an array the module will only read.

@@ -21,11 +21,13 @@ for (const pkg of packages) {
     diagnostics = `${err.stdout ?? ''}${err.stderr ?? ''}`;
   }
 
-  const out = path.join(dir, 'dist', 'index.js');
-  if (!existsSync(out) || statSync(out).size === 0) {
-    console.error(`build failed for ${pkg}: no dist/index.js emitted`);
-    if (diagnostics) console.error(diagnostics);
-    process.exit(1);
+  for (const artifact of ['index.js', 'index.d.ts']) {
+    const out = path.join(dir, 'dist', artifact);
+    if (!existsSync(out) || statSync(out).size === 0) {
+      console.error(`build failed for ${pkg}: no dist/${artifact} emitted`);
+      if (diagnostics) console.error(diagnostics);
+      process.exit(1);
+    }
   }
-  console.log(`built ${pkg} -> dist/index.js`);
+  console.log(`built ${pkg} -> dist/index.js + index.d.ts`);
 }

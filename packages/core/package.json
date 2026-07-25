@@ -1,6 +1,6 @@
 {
   "name": "@cross-native/core",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "Core API for CrossNative - run native code in React Native",
   "main": "dist/index.js",
   "files": [
@@ -32,7 +32,7 @@
     "node": ">=22.6.0"
   },
   "dependencies": {
-    "@cross-native/languages": "0.1.0-alpha.4"
+    "@cross-native/languages": "0.1.0-alpha.5"
   },
   "publishConfig": {
     "access": "public"
@@ -41,5 +41,6 @@
     "type": "git",
     "url": "https://github.com/melodyLeonard/cross-native.git"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "types": "dist/index.d.ts"
 }

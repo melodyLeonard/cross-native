@@ -7,7 +7,7 @@ export function isNativeAvailable(): boolean {
   if (typeof global === 'undefined') return false;
   
   // Check for Worklet runtime (Reanimated)
-  if (global._WORKLET_RUNTIME !== undefined) {
+  if ((global as Record<string, unknown>)._WORKLET_RUNTIME !== undefined) {
     return true;
   }
   
@@ -39,7 +39,7 @@ export function getRuntimeInfo(): {
 } {
   const features: string[] = [];
   
-  if (global._WORKLET_RUNTIME) {
+  if ((global as Record<string, unknown>)._WORKLET_RUNTIME) {
     features.push('worklet-runtime');
   }
   

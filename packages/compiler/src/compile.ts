@@ -58,18 +58,7 @@ export async function compile(options: CompileOptions): Promise<CompileResult> {
     return { ok: false, error: describeMissing(report) };
   }
 
-  const result = await driver(options);
-  
-  if (result.ok && result.wasmPath && options.targetPlatform === 'ios') {
-    // Generate AOT for iOS
-    const { execSync } = require('child_process');
-    try {
-      execSync(`wamrc --target=aarch64 -o ${result.wasmPath.replace('.wasm', '.a')} ${result.wasmPath}`);
-      result.aotPath = result.wasmPath.replace('.wasm', '.a');
-    } catch (e) {
-      console.warn('Failed to run wamrc for AOT compilation:', e);
-    }
-  }
-
-  return result;
+  // AOT compilation, when requested, is handled by the CLI via compileAot on the
+  // returned artifact; the driver's job is just to produce the .wasm.
+  return driver(options);
 }

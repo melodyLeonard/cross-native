@@ -6,7 +6,7 @@
  * adding a sibling of this file — nothing outside `drivers/` changes.
  */
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { run } from '../toolchain.ts';
 import type { CompileRequest, CompileResult } from '../types.ts';

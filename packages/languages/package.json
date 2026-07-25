@@ -1,6 +1,6 @@
 {
   "name": "@cross-native/languages",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "Language registry and validation for CrossNative",
   "type": "module",
   "main": "dist/index.js",
@@ -20,5 +20,6 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
-  }
+  },
+  "types": "dist/index.d.ts"
 }
