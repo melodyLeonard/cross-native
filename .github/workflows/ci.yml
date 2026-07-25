@@ -35,6 +35,10 @@ jobs:
       - name: Install deps
         run: npm ci || npm install
 
+      # Lint the TypeScript sources with Biome.
+      - name: Lint
+        run: npm run lint
+
       # The C++ core suite: builds WAMR plus CrossNative, compiles the Rust
       # fixture to WASM, and runs the runtime checks.
       - name: Native test suite

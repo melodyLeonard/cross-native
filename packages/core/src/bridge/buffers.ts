@@ -79,7 +79,9 @@ export function inoutBuffer(
   return { inout: toNumberArray(data), type };
 }
 
-const TYPED_ARRAY_TYPES: Array<[Function, BufferElementType]> = [
+type TypedArrayCtor = new (...args: never[]) => ArrayBufferView;
+
+const TYPED_ARRAY_TYPES: Array<[TypedArrayCtor, BufferElementType]> = [
   [Float64Array, 'f64'],
   [Float32Array, 'f32'],
   [Int32Array, 'i32'],
