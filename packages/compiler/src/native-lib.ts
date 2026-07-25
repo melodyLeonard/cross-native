@@ -223,23 +223,83 @@ async function build(req: NativeLibRequest, lang: 'zig' | 'c' | 'cpp'): Promise<
 
   const shimName = `cn_dispatch${req.symbol}.zig`;
   await writeFile(join(req.sourceDir, shimName), shim);
+  const zig = resolveZig();
 
-  const cmd = [resolveZig(), 'build-lib', shimName];
-  if (lang !== 'zig') cmd.push(req.entryFile); // compile + link the C/C++ source
-  cmd.push('-target', req.target, '-O', 'ReleaseFast', lang === 'cpp' ? '-lc++' : '-lc');
-
-  // Compiling C/C++ for an Apple target needs that SDK's headers (<math.h> etc.).
-  // Zig source is freestanding and doesn't.
-  if (lang !== 'zig' && req.target.includes('ios')) {
-    const sdk = req.target.includes('simulator') ? 'iphonesimulator' : 'iphoneos';
-    const { code, stdout } = await run(['xcrun', '--sdk', sdk, '--show-sdk-path']);
-    if (code === 0 && stdout.trim()) cmd.push('--sysroot', stdout.trim());
+  // Apple targets: build objects and archive so that only the crossnative_call
+  // entry symbols are exported. Several languages get force-loaded into one app,
+  // and their plain C exports (add, estimate_pi, …) would otherwise collide.
+  if (req.target.includes('ios')) {
+    return buildAppleLinked(req, lang, shimName, zig);
   }
+
+  // Zig, or C/C++ on the host: a single zig build-lib links everything.
+  const cmd = [zig, 'build-lib', shimName];
+  if (lang !== 'zig') cmd.push(req.entryFile);
+  cmd.push('-target', req.target, '-O', 'ReleaseFast', lang === 'cpp' ? '-lc++' : '-lc');
   cmd.push(`-femit-bin=${req.outPath}`);
 
   const { code, stderr } = await run(cmd, req.sourceDir);
   if (code !== 0) {
     return { ok: false, error: stderr.trim() || `zig build-lib exited with ${code}` };
   }
+  return { ok: true, artifactPath: req.outPath };
+}
+
+async function buildAppleLinked(
+  req: NativeLibRequest,
+  lang: 'zig' | 'c' | 'cpp',
+  shimName: string,
+  zig: string
+): Promise<NativeLibResult> {
+  const objs: string[] = [];
+  const sdk = req.target.includes('simulator') ? 'iphonesimulator' : 'iphoneos';
+
+  if (lang === 'zig') {
+    // The shim @imports the .zig source, so one build-obj compiles both.
+    const obj = join(req.sourceDir, `cn${req.symbol}.o`);
+    const r = await run(
+      [zig, 'build-obj', shimName, '-target', req.target, '-O', 'ReleaseFast', `-femit-bin=${obj}`],
+      req.sourceDir
+    );
+    if (r.code !== 0) return { ok: false, error: r.stderr.trim() || 'zig build-obj failed' };
+    objs.push(obj);
+  } else {
+    // Zig shim object + the C/C++ source compiled by Xcode clang (which finds
+    // the iOS SDK headers). export_name is a wasm attribute clang ignores, so
+    // silence that warning.
+    const shimObj = join(req.sourceDir, `cn_shim${req.symbol}.o`);
+    let r = await run(
+      [zig, 'build-obj', shimName, '-target', req.target, '-O', 'ReleaseFast', `-femit-bin=${shimObj}`],
+      req.sourceDir
+    );
+    if (r.code !== 0) return { ok: false, error: r.stderr.trim() || 'shim build failed' };
+
+    const srcObj = join(req.sourceDir, `cn_src${req.symbol}.o`);
+    const cc = lang === 'cpp' ? 'clang++' : 'clang';
+    const extra = lang === 'cpp' ? ['-std=gnu++17', '-fno-exceptions', '-fno-rtti'] : [];
+    r = await run(
+      ['xcrun', '--sdk', sdk, cc, '-arch', 'arm64', '-O3', '-Wno-ignored-attributes',
+       ...extra, '-c', req.entryFile, '-o', srcObj],
+      req.sourceDir
+    );
+    if (r.code !== 0) return { ok: false, error: r.stderr.trim() || 'clang compile failed' };
+    objs.push(shimObj, srcObj);
+  }
+
+  // Partial-link into one object, exporting only the two entry symbols; every
+  // other global (the user's functions) becomes local, so libraries for
+  // different languages can coexist in one app.
+  const combined = join(req.sourceDir, `cn_combined${req.symbol}.o`);
+  let r = await run(
+    ['xcrun', 'ld', '-r',
+     '-exported_symbol', `_crossnative_call${req.symbol}`,
+     '-exported_symbol', `_crossnative_manifest${req.symbol}`,
+     ...objs, '-o', combined],
+    req.sourceDir
+  );
+  if (r.code !== 0) return { ok: false, error: r.stderr.trim() || 'partial link failed' };
+
+  r = await run(['xcrun', 'libtool', '-static', combined, '-o', req.outPath], req.sourceDir);
+  if (r.code !== 0) return { ok: false, error: r.stderr.trim() || 'libtool failed' };
   return { ok: true, artifactPath: req.outPath };
 }

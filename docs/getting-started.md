@@ -1,20 +1,39 @@
 # Getting started
 
-CrossNative lets you write a compute function in a compiled language, keep it in
-your React Native project as a plain source file, and call it from JS. The work
-runs on a worker thread, so it doesn't block the UI.
+This guide assumes you have never used CrossNative before. Follow it top to
+bottom and you'll have a compiled function running off the JavaScript thread.
 
-## 1. Install
+## What this does
+
+React Native runs all your JavaScript on one thread. A heavy loop (image
+processing, physics, crypto, big data) blocks that thread and the UI freezes.
+CrossNative lets you write that loop in Rust, Go, Zig, C, or C++, keep it in your
+project as a normal source file, and call it from JS. It runs on a background
+thread, so the UI stays smooth.
+
+You write the source. CrossNative compiles it for you. You never touch cargo,
+zig, or go on the command line.
+
+## Prerequisites
+
+- **Node 22.6 or newer** (`node --version`). CrossNative runs its TypeScript
+  through Node's type stripping, which needs 22.6+.
+- A working React Native project (this guide assumes RN 0.76+).
+- Xcode (for iOS) and/or Android Studio (for Android), as usual for React Native.
+
+## Step 1 — Install the package
 
 ```
 npm install react-native-cross-native
-cd ios && pod install   # Android links automatically
+cd ios && pod install && cd ..
 ```
 
-## 2. Point Metro at the transformer
+Android links automatically; no extra step.
 
-Metro compiles your source files on demand. Add the transformer and the source
-extensions to `metro.config.js`:
+## Step 2 — Tell Metro how to compile your source files
+
+Open `metro.config.js` and add the transformer and the file extensions. If your
+file is minimal, replace it with this:
 
 ```js
 const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
@@ -36,27 +55,37 @@ module.exports = mergeConfig(defaultConfig, {
 });
 ```
 
-## 3. Install the toolchain for your language
+Restart Metro after changing this file (`npm start -- --reset-cache`).
 
-CrossNative shells out to the real compiler, so you need it on your PATH:
+## Step 3 — Install the compiler for your language
 
-| Language | Toolchain |
-|----------|-----------|
-| Rust | `rustup target add wasm32-unknown-unknown` |
-| Go | Go 1.24 or newer |
-| Zig | The `zig` binary (also covers C and C++) |
-| C, C++ | The `zig` binary |
+CrossNative calls the real compiler under the hood, so it has to be on your
+machine. Install only the one(s) you need:
 
-Point CrossNative at a specific binary with `CROSSNATIVE_ZIG` / `CROSSNATIVE_GO`
-if it isn't on your PATH. Run `npx cross-native doctor` to see what's detected.
+- **Rust**
+  ```
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  rustup target add wasm32-unknown-unknown
+  ```
+- **Go** — install Go 1.24 or newer from https://go.dev/dl/.
+- **Zig, C, or C++** — download a single Zig binary from
+  https://ziglang.org/download/ and either put it on your PATH or set
+  `CROSSNATIVE_ZIG=/path/to/zig`. That one binary compiles Zig, C, and C++.
 
-## 4. Write your function
+Check what CrossNative can see:
 
-Each language marks the functions it wants to expose to JS. Put each module in
-its own folder.
+```
+npx cross-native doctor
+```
+
+It prints each language and whether its toolchain is ready.
+
+## Step 4 — Write your function
+
+Put each module in its own folder. Mark the functions you want to reach from JS.
+Here is the same simple example in each language.
 
 **Rust** — `native/compute.rs`
-
 ```rust
 use crossnative::crossnative;
 
@@ -71,7 +100,6 @@ pub fn heavy(iterations: u32) -> f64 {
 ```
 
 **Go** — `native/compute.go`
-
 ```go
 package main
 
@@ -88,7 +116,6 @@ func main() {}
 ```
 
 **Zig** — `native/compute.zig`
-
 ```zig
 export fn heavy(iterations: u32) f64 {
     var sum: f64 = 0;
@@ -99,7 +126,6 @@ export fn heavy(iterations: u32) f64 {
 ```
 
 **C** — `native/compute.c`
-
 ```c
 #include <stdint.h>
 
@@ -111,16 +137,16 @@ double heavy(uint32_t iterations) {
 }
 ```
 
-**C++** — `native/compute.cpp` — same as C, wrapped in `extern "C" { ... }`.
+**C++** — `native/compute.cpp` — the same as C, wrapped in `extern "C" { ... }`.
 
-Supported parameter and return types: the numeric primitives, `bool`, and (for
-Rust) `Vec<number>`, `&[number]`, `String`, `&str`.
+Supported types: the numeric primitives and `bool`. Rust additionally supports
+`Vec<number>`, `&[number]`, `String`, and `&str`.
 
-## 5. Call it from JS
+## Step 5 — Call it from JavaScript
 
 ```ts
 import {createNativeModule} from 'react-native-cross-native';
-import WASM from './native/compute.rs'; // Metro compiles this to bytes
+import WASM from './native/compute.rs'; // Metro compiles this for you
 
 const compute = await createNativeModule({
   name: 'compute',
@@ -132,22 +158,60 @@ const compute = await createNativeModule({
 const result = await compute.call('heavy', [1_000_000]);
 ```
 
-Swap the import and `language` for `.go`, `.zig`, `.c`, or `.cpp`.
+For another language, change the import path, the `source`, and the `language`
+(`'go'`, `'zig'`, `'c'`, `'cpp'`). That's it — run your app and the call happens
+on a background thread.
 
-## Speed: AOT and iOS
+## Step 6 — Getting native speed
 
-By default modules run on the WebAssembly interpreter, which works everywhere but
-is slower than JS on raw number crunching. To get native speed:
+By default your module runs on a small WebAssembly interpreter. It works
+everywhere and is fine for moderate work, but on heavy number crunching it is
+slower than JavaScript. The two ways to get real native speed:
 
-- **Android** loads AOT-compiled WebAssembly at runtime. Run Metro with
-  `CROSSNATIVE_AOT=1` (and `CROSSNATIVE_WAMRC` pointing at a `wamrc` binary) and
-  the modules are compiled ahead of time.
-- **iOS** does not allow loading code at runtime, so a language is either
-  compiled into the app as a static library and called over the C ABI, or it
-  falls back to the interpreter. Build a static library with
-  `cross-native build-native`, add it to your Podfile with `-force_load`, and
-  pass `linked: true` (with `linkedSymbol` for non-Rust languages) to
-  `createNativeModule`. See the example app for a full setup.
+### Android — ahead-of-time compilation
+
+Android can load compiled code at runtime. Start Metro with AOT turned on:
+
+```
+CROSSNATIVE_AOT=1 CROSSNATIVE_WAMRC=/path/to/wamrc npm start
+```
+
+`wamrc` is the WebAssembly-to-native compiler. Point `CROSSNATIVE_WAMRC` at it.
+With AOT on, every language runs at native speed on Android.
+
+### iOS — link the code into the app
+
+iOS does not allow loading compiled code at runtime, so on iOS a language is
+either interpreted, or compiled into the app as a static library and called
+directly. To link it in (Rust, Zig, C, C++ are supported):
+
+1. Build the static library:
+   ```
+   npx cross-native build-native native \
+     --language zig --entry compute.zig \
+     --symbol _zig --target aarch64-ios-simulator \
+     --out native/ios/libcompute_zig.a
+   ```
+   (Rust builds with `cargo build --target aarch64-apple-ios-sim --release` from
+   a crate whose `crate-type` includes `staticlib`.)
+2. Force-load it in your `ios/Podfile` `post_install` block:
+   ```ruby
+   flag = '-force_load $(PODS_ROOT)/../native/ios/libcompute_zig.a'
+   ```
+3. Tell `createNativeModule` to use the linked code:
+   ```ts
+   await createNativeModule({
+     name: 'compute',
+     source: 'compute.zig',
+     language: 'zig',
+     linked: true,
+     linkedSymbol: '_zig', // Rust uses '' (empty); each language its own suffix
+   });
+   ```
+
+Use `aarch64-ios-simulator` for the simulator and `aarch64-ios` for a device.
+The example app in this repo (`PiBench`) shows a complete iOS + Android setup
+across all five languages.
 
 ## Passing arrays
 
@@ -157,6 +221,16 @@ the module to export `cn_alloc`/`cn_free`:
 ```ts
 import {inBuffer, outBuffer} from '@cross-native/core';
 
-await compute.call('sum', [inBuffer([1, 2, 3]), 3]);
-await compute.call('multiply', [a, b, outBuffer(9), 3]);
+await compute.call('sum', [inBuffer([1, 2, 3]), 3]);       // read-only input
+await compute.call('multiply', [a, b, outBuffer(9), 3]);   // module writes output
 ```
+
+## Troubleshooting
+
+- **"toolchain not found"** — install the compiler from Step 3, or set the
+  `CROSSNATIVE_ZIG` / `CROSSNATIVE_GO` environment variable, then rerun
+  `npx cross-native doctor`.
+- **A change to your source isn't picked up** — restart Metro with
+  `--reset-cache`.
+- **It's slower than expected** — you're on the interpreter. Turn on AOT
+  (Android) or link the library (iOS) as in Step 6.

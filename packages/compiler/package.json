@@ -1,6 +1,6 @@
 {
   "name": "@cross-native/compiler",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "Toolchain detection and compile drivers for CrossNative",
   "type": "module",
   "main": "src/index.ts",
@@ -13,7 +13,7 @@
     "bin"
   ],
   "dependencies": {
-    "@cross-native/languages": "0.1.0"
+    "@cross-native/languages": "0.1.0-alpha.1"
   },
   "license": "Apache-2.0",
   "engines": {
