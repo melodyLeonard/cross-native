@@ -5,9 +5,25 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "bin": { "cross-native": "bin/cross-native.mjs" },
-  "files": ["src", "bin"],
-  "dependencies": { "@cross-native/languages": "*" },
+  "bin": {
+    "cross-native": "bin/cross-native.mjs"
+  },
+  "files": [
+    "src",
+    "bin"
+  ],
+  "dependencies": {
+    "@cross-native/languages": "0.1.0"
+  },
   "license": "Apache-2.0",
-  "engines": { "node": ">=22.6.0" }
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/melodyLeonard/cross-native.git"
+  }
 }

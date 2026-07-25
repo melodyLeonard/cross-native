@@ -1,0 +1,16 @@
+# Build artifacts that must never ship
+android/build
+android/.cxx
+android/.gradle
+ios/build
+ios/Pods
+**/*.o
+**/*.a
+**/*.so
+# Trim WAMR to just what the pod/CMake build references
+wamr/core/deps
+wamr/core/iwasm/**/test
+wamr/core/iwasm/fast-jit
+wamr/core/iwasm/compilation
+wamr/core/iwasm/libraries/debug-engine
+wamr/core/iwasm/libraries/thread-mgr
