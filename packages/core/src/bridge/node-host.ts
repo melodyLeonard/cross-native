@@ -136,7 +136,7 @@ export class NodeHostBackend implements Backend {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      this.child.stdin.write(JSON.stringify({ id, ...payload }) + '\n', (error?: Error) => {
+      this.child.stdin.write(`${JSON.stringify({ id, ...payload })}\n`, (error?: Error) => {
         if (error) {
           this.pending.delete(id);
           reject(new BackendError(`Failed to write to host: ${error.message}`));

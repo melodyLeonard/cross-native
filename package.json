@@ -16,9 +16,12 @@
     "link": "node scripts/link-workspaces.mjs",
     "pretest": "npm run link",
     "prebuild:native": "npm run link",
-    "build:packages": "node scripts/build-packages.mjs"
+    "build:packages": "node scripts/build-packages.mjs",
+    "lint": "biome lint",
+    "lint:fix": "biome lint --write"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.5",
     "@types/node": "^20.12.0",
     "prettier": "^3.2.0",
     "typescript": "5.8"

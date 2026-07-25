@@ -64,7 +64,7 @@ export function composePlugins(...plugins: Plugin[]): Plugin {
     version: '1.0.0',
 
     onModuleLoad: (module: NativeModule) => {
-      plugins.forEach(p => p.onModuleLoad?.(module));
+      for (const p of plugins) p.onModuleLoad?.(module);
     },
 
     beforeCall: async (context: CallContext) => {
@@ -90,7 +90,7 @@ export function composePlugins(...plugins: Plugin[]): Plugin {
     },
 
     onMetrics: (metrics: PerformanceMetrics) => {
-      plugins.forEach(p => p.onMetrics?.(metrics));
+      for (const p of plugins) p.onMetrics?.(metrics);
     },
   };
 }
