@@ -23,6 +23,13 @@ jobs:
 
       - run: npm install -g npm@latest
 
+      # Install workspace deps and build the TypeScript packages to dist JS,
+      # since the published packages ship compiled JavaScript (Node cannot strip
+      # TypeScript types under node_modules).
+      - run: npm ci || npm install
+      - run: |
+          node scripts/build-packages.mjs
+
       # Publish each package in dependency order. Idempotent: a version already
       # on the registry is skipped, so re-runs are safe. Any real failure is
       # surfaced as an annotation.

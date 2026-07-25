@@ -8,7 +8,7 @@
  */
 
 /** Every language CrossNative recognises, whether or not it works yet. */
-export type LanguageId = 'rust' | 'go' | 'zig' | 'assemblyscript' | 'cpp';
+export type LanguageId = 'rust' | 'go' | 'zig' | 'assemblyscript' | 'c' | 'cpp';
 
 /**
  * How far along a language is.

@@ -1,4 +1,4 @@
-#!/usr/bin/env -S node --experimental-strip-types
+#!/usr/bin/env node
 
 /**
  * cross-native — build a native module and embed it for the bundler.

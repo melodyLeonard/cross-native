@@ -36,7 +36,7 @@ function languageForFile(filename) {
 }
 
 function compileNative(filename, languageId) {
-  const args = ['--experimental-strip-types', CLI, 'build', path.dirname(filename),
+  const args = [CLI, 'build', path.dirname(filename),
     '--language', languageId, '--entry', path.basename(filename), '--stdout'];
   if (process.env.CROSSNATIVE_AOT === '1') args.push('--aot');
 

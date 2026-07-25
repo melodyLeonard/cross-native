@@ -10,17 +10,18 @@
     "build:native": "make -C packages/native crossnative-host wasm",
     "test": "npm run test:native && npm run test:core",
     "test:native": "make -C packages/native check",
-    "test:core": "npm run build:native && node --experimental-strip-types packages/core/test/run.ts",
+    "test:core": "npm run build:packages && npm run build:native && node --experimental-strip-types packages/core/test/run.ts",
     "clean": "make -C packages/native clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "link": "node scripts/link-workspaces.mjs",
     "pretest": "npm run link",
-    "prebuild:native": "npm run link"
+    "prebuild:native": "npm run link",
+    "build:packages": "node scripts/build-packages.mjs"
   },
   "devDependencies": {
+    "@types/node": "^20.12.0",
     "prettier": "^3.2.0",
-    "typescript": "^5.8.0",
-    "@types/node": "^20.12.0"
+    "typescript": "5.8"
   },
   "engines": {
     "node": ">=22.6.0"

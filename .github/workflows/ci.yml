@@ -30,6 +30,11 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
 
+      # Install workspace deps. The published packages ship compiled JS, so the
+      # core suite builds them to dist first (see build:packages).
+      - name: Install deps
+        run: npm ci || npm install
+
       # The C++ core suite: builds WAMR plus CrossNative, compiles the Rust
       # fixture to WASM, and runs the runtime checks.
       - name: Native test suite

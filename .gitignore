@@ -65,3 +65,4 @@ target/
 
 # Android native build
 .cxx/
+packages/*/dist/
