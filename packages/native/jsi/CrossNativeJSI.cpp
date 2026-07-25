@@ -293,11 +293,13 @@ jsi::Object buildProxy(jsi::Runtime& rt, const std::shared_ptr<Installation>& in
 
   // Load a Rust module linked into the app (iOS native FFI). Synchronous: no
   // bytes to parse, just symbol resolution. Returns the manifest JSON.
-  defineFunction(rt, proxy, "loadLinkedModule", 1,
+  defineFunction(rt, proxy, "loadLinkedModule", 2,
       [install](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* a, size_t n) {
         auto moduleId = toString(rt, a, n, 0, "moduleId");
-        if (!install->core->loadLinkedModule(moduleId)) {
-          throw jsi::JSError(rt, "CrossNative: no linked Rust library found for '" +
+        // Optional 2nd arg: the entry-symbol suffix (e.g. "_zig"). Empty for Rust.
+        std::string suffix = (n > 1 && a[1].isString()) ? a[1].asString(rt).utf8(rt) : "";
+        if (!install->core->loadLinkedModule(moduleId, suffix)) {
+          throw jsi::JSError(rt, "CrossNative: no linked library found for '" +
                                  moduleId + "'");
         }
         return jsi::String::createFromUtf8(rt, install->core->getModuleManifest(moduleId));

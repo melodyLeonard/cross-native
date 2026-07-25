@@ -66,18 +66,22 @@ SharedLibraryModule::SharedLibraryModule(const std::string& id,
   manifestFunc_ = reinterpret_cast<ManifestFunc>(dlsym(handle_, "crossnative_manifest"));
 }
 
-SharedLibraryModule::SharedLibraryModule(const std::string& id, Linked)
+SharedLibraryModule::SharedLibraryModule(const std::string& id, Linked linked)
     : id_(id), libraryPath_("<linked>") {
-  // The Rust static library is linked into the app, so its symbols live in the
-  // main image rather than a loadable file. RTLD_DEFAULT searches everything
-  // already loaded — no dlopen, which iOS forbids for arbitrary code.
-  callFunc_ = reinterpret_cast<CallFunc>(dlsym(RTLD_DEFAULT, "crossnative_call"));
+  // The static library is linked into the app, so its symbols live in the main
+  // image rather than a loadable file. RTLD_DEFAULT searches everything already
+  // loaded — no dlopen, which iOS forbids for arbitrary code. The suffix lets
+  // several linked languages coexist (crossnative_call, crossnative_call_zig…).
+  const std::string callName = "crossnative_call" + linked.suffix;
+  const std::string manifestName = "crossnative_manifest" + linked.suffix;
+
+  callFunc_ = reinterpret_cast<CallFunc>(dlsym(RTLD_DEFAULT, callName.c_str()));
   if (!callFunc_) {
     throw std::runtime_error(
-        "No linked 'crossnative_call' symbol found. Is the Rust static library "
+        "No linked '" + callName + "' symbol found. Is the static library "
         "linked into the app (with -force_load)?");
   }
-  manifestFunc_ = reinterpret_cast<ManifestFunc>(dlsym(RTLD_DEFAULT, "crossnative_manifest"));
+  manifestFunc_ = reinterpret_cast<ManifestFunc>(dlsym(RTLD_DEFAULT, manifestName.c_str()));
 }
 
 std::string SharedLibraryModule::getManifest() const {

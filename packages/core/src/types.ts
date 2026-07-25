@@ -131,11 +131,18 @@ export interface NativeModuleConfig {
   bytes?: Uint8Array | ArrayBuffer;
 
   /**
-   * Use a Rust static library linked into the app instead of loading a module.
+   * Use a static library linked into the app instead of loading a module.
    * The iOS speed path: iOS forbids loading executable code at runtime, so the
-   * Rust is compiled to a static library and linked into the app binary.
+   * source is compiled to a static library and linked into the app binary.
    */
   linked?: boolean;
+
+  /**
+   * Entry-symbol suffix for the linked library, so several linked languages can
+   * coexist in one app: Rust uses "" (crossnative_call), Zig "_zig", etc.
+   * Only meaningful with `linked`.
+   */
+  linkedSymbol?: string;
 
   /** Language backend */
   language: NativeLanguage;

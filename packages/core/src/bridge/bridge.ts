@@ -203,7 +203,7 @@ function unwrapResponse(response: CallResponse): unknown {
  * extension swapped.
  */
 function resolveSource(config: NativeModuleConfig): ModuleSource {
-  if (config.linked) return { kind: 'linked' };
+  if (config.linked) return { kind: 'linked', symbol: config.linkedSymbol };
 
   if (config.bytes) {
     const bytes = config.bytes instanceof Uint8Array

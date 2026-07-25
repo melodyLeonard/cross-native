@@ -132,7 +132,8 @@ public:
      * forbidden), reached through the crossnative_call / crossnative_manifest
      * symbols rather than a loaded .wasm/.aot.
      */
-    bool loadLinkedModule(const std::string& moduleId);
+    bool loadLinkedModule(const std::string& moduleId,
+                          const std::string& symbolSuffix = "");
 
     void unloadModule(const std::string& moduleId);
     bool isModuleLoaded(const std::string& moduleId);

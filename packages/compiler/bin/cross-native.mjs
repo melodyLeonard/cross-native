@@ -29,6 +29,7 @@ import {
   toBase64,
   inspectToolchain,
   describeMissing,
+  compileZigNativeLib,
 } from '@cross-native/compiler';
 
 const RUNTIME_CRATE = resolve(
@@ -128,6 +129,38 @@ async function build({ dir, flags }) {
   log(`  embedded  ${out}  (${size.toLocaleString()} bytes)`);
 }
 
+/**
+ * Build a native static library for the iOS linked-FFI path.
+ *
+ *   cross-native build-native <dir> --language zig --entry compute.zig \
+ *     --symbol _zig --target aarch64-ios-simulator --out path/to/lib.a
+ *
+ * Compiles the source (via a generated dispatch shim) to a `.a` exporting
+ * crossnative_call<symbol> / crossnative_manifest<symbol>, ready to -force_load
+ * into the app. Currently supports Zig.
+ */
+async function buildNative({ dir, flags }) {
+  const sourceDir = resolve(dir);
+  const language = flags.language ?? 'zig';
+  if (language !== 'zig') {
+    console.error(`build-native currently supports --language zig (got ${language})`);
+    process.exit(2);
+  }
+  const symbol = typeof flags.symbol === 'string' ? flags.symbol : '_zig';
+  const target = typeof flags.target === 'string' ? flags.target : 'aarch64-ios-simulator';
+  const entry = typeof flags.entry === 'string' ? flags.entry : 'main.zig';
+  const outPath = resolve(flags.out ?? join(sourceDir, `lib${basename(sourceDir)}.a`));
+
+  console.log(`Building ${language} static library for ${target}`);
+  const result = await compileZigNativeLib({ sourceDir, entryFile: entry, target, symbol, outPath });
+  if (!result.ok) {
+    console.error(`\n${result.error}`);
+    process.exit(1);
+  }
+  console.log(`  linked lib  ${result.artifactPath}`);
+  console.log(`  symbols     crossnative_call${symbol} / crossnative_manifest${symbol}`);
+}
+
 async function doctor() {
   console.log('CrossNative language support\n');
 
@@ -155,9 +188,10 @@ const options = parseArgs(process.argv.slice(2));
 
 try {
   if (options.command === 'build') await build(options);
+  else if (options.command === 'build-native') await buildNative(options);
   else if (options.command === 'doctor') await doctor();
   else {
-    console.error(`Unknown command "${options.command}". Try: build, doctor`);
+    console.error(`Unknown command "${options.command}". Try: build, build-native, doctor`);
     process.exit(2);
   }
 } catch (error) {

@@ -17,3 +17,11 @@ export {
 } from './toolchain.ts';
 export { embedWasm, toBase64 } from './embed.ts';
 export { compileAot, resolveWamrc, type AotResult } from './aot.ts';
+export {
+  compileZigNativeLib,
+  parseZigExports,
+  generateZigDispatch,
+  type NativeLibRequest,
+  type NativeLibResult,
+  type FnSig,
+} from './native-lib.ts';
