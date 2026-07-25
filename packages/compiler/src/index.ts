@@ -20,8 +20,10 @@ export { compileAot, resolveWamrc, type AotResult } from './aot.ts';
 export {
   compileZigNativeLib,
   compileClangNativeLib,
+  compileGoNativeLib,
   parseZigExports,
   parseCExports,
+  parseGoExports,
   generateDispatch,
   type NativeLibRequest,
   type NativeLibResult,

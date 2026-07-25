@@ -31,6 +31,7 @@ import {
   describeMissing,
   compileZigNativeLib,
   compileClangNativeLib,
+  compileGoNativeLib,
 } from '@cross-native/compiler';
 
 const RUNTIME_CRATE = resolve(
@@ -130,17 +131,17 @@ async function build({ dir, flags }) {
   log(`  embedded  ${out}  (${size.toLocaleString()} bytes)`);
 }
 
-// Build a native static library for the iOS linked-FFI path (Zig, C, C++):
+// Build a native static library for the iOS linked-FFI path (Zig, C, C++, Go):
 //   cross-native build-native <dir> --language zig --entry compute.zig \
 //     --symbol _zig --target aarch64-ios-simulator --out path/to/lib.a
 async function buildNative({ dir, flags }) {
   const sourceDir = resolve(dir);
   const language = flags.language ?? 'zig';
-  if (!['zig', 'c', 'cpp'].includes(language)) {
-    console.error(`build-native supports --language zig|c|cpp (got ${language})`);
+  if (!['zig', 'c', 'cpp', 'go'].includes(language)) {
+    console.error(`build-native supports --language zig|c|cpp|go (got ${language})`);
     process.exit(2);
   }
-  const defaultSymbol = { zig: '_zig', c: '_c', cpp: '_cpp' }[language];
+  const defaultSymbol = { zig: '_zig', c: '_c', cpp: '_cpp', go: '_go' }[language];
   const symbol = typeof flags.symbol === 'string' ? flags.symbol : defaultSymbol;
   const target = typeof flags.target === 'string' ? flags.target : 'aarch64-ios-simulator';
   const entry = typeof flags.entry === 'string' ? flags.entry : `main.${language}`;
@@ -150,6 +151,8 @@ async function buildNative({ dir, flags }) {
   console.log(`Building ${language} static library for ${target}`);
   const result = language === 'zig'
     ? await compileZigNativeLib(req)
+    : language === 'go'
+    ? await compileGoNativeLib(req)
     : await compileClangNativeLib(req, language);
   if (!result.ok) {
     console.error(`\n${result.error}`);

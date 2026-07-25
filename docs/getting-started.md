@@ -219,7 +219,9 @@ back to the interpreter for that module.
 
 iOS does not allow loading compiled code at runtime, so on iOS a language is
 either interpreted, or compiled into the app as a static library and called
-directly. To link it in (Rust, Zig, C, C++ are supported):
+directly. All five languages support this — Rust, Zig, C and C++ build a small
+static library; Go builds a c-archive (which bundles the Go runtime). To link
+one in:
 
 1. Build the static library:
    ```

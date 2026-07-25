@@ -10,6 +10,9 @@ export interface FnSig {
   name: string;
   params: { name: string; type: string }[];
   returns: string;
+  /** The C symbol to call, if it differs from `name` (Go's cgo exports are
+   *  prefixed because //export can't reuse the Go function's name). */
+  cName?: string;
 }
 
 const NUMERIC = new Set([
@@ -72,6 +75,40 @@ export function parseCExports(source: string): FnSig[] {
   return sigs;
 }
 
+const GO_TO_ZIG: Record<string, string> = {
+  float64: 'f64', float32: 'f32',
+  int8: 'i8', int16: 'i16', int32: 'i32', int64: 'i64', int: 'i64',
+  uint8: 'u8', uint16: 'u16', uint32: 'u32', uint64: 'u64', uint: 'u64', byte: 'u8',
+  bool: 'bool',
+};
+
+function goType(t: string): string {
+  const zig = GO_TO_ZIG[t.trim()];
+  if (!zig) throw new Error(`unsupported Go type '${t.trim()}' on the linked path`);
+  return zig;
+}
+
+// Parse //go:wasmexport-marked functions and their signatures. The C symbol is
+// prefixed with cn_ because the generated cgo wrapper can't reuse the Go name.
+export function parseGoExports(source: string): FnSig[] {
+  const sigs: FnSig[] = [];
+  const re = /\/\/go:wasmexport\s+(\w+)\s*\n\s*func\s+\w+\s*\(([^)]*)\)\s*([A-Za-z_]\w*)?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source)) !== null) {
+    const [, name, paramList, ret] = m;
+    const params = paramList
+      .split(',')
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => {
+        const parts = p.split(/\s+/);
+        return { name: parts[0], type: goType(parts[1]) };
+      });
+    sigs.push({ name, params, returns: ret ? goType(ret) : 'void', cName: `cn_${name}` });
+  }
+  return sigs;
+}
+
 function readArg(type: string, index: number): string {
   const at = `args.items[${index}]`;
   if (type === 'bool') return `(argF64(${at}) != 0)`;
@@ -85,7 +122,7 @@ function readArg(type: string, index: number): string {
 }
 
 function encodeResult(sig: FnSig): string {
-  const call = `${sig.name}(${sig.params.map((p, i) => readArg(p.type, i)).join(', ')})`;
+  const call = `${sig.cName ?? sig.name}(${sig.params.map((p, i) => readArg(p.type, i)).join(', ')})`;
   if (sig.returns === 'void') {
     return `{ ${call}; return respond("{{\\"success\\":true,\\"result\\":null,\\"outputs\\":[]}}", .{}); }`;
   }
@@ -122,7 +159,7 @@ export function generateDispatch(sigs: FnSig[], suffix: string, importFile?: str
     .map(s => {
       const params = s.params.map(p => `${p.name}: ${p.type}`).join(', ');
       const ret = s.returns === 'void' ? 'void' : s.returns;
-      return `extern fn ${s.name}(${params}) ${ret};`;
+      return `extern fn ${s.cName ?? s.name}(${params}) ${ret};`;
     })
     .join('\n');
 
@@ -203,6 +240,82 @@ export async function compileClangNativeLib(
   lang: 'c' | 'cpp'
 ): Promise<NativeLibResult> {
   return build(req, lang);
+}
+
+function resolveGo(): string {
+  return process.env.CROSSNATIVE_GO ?? 'go';
+}
+
+// Go's native path: build a c-archive (the whole Go runtime) exporting cn_<name>
+// wrappers, then archive it with the Zig dispatch shim. Apple targets only.
+export async function compileGoNativeLib(req: NativeLibRequest): Promise<NativeLibResult> {
+  if (!req.target.includes('ios')) {
+    return { ok: false, error: 'Go native lib is only supported for Apple targets' };
+  }
+  const { mkdtemp, cp } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+
+  const source = await readFile(join(req.sourceDir, req.entryFile), 'utf8');
+  const sigs = parseGoExports(source);
+  if (sigs.length === 0) {
+    return { ok: false, error: `no //go:wasmexport functions found in ${req.entryFile}` };
+  }
+
+  // Build in a temp module: the user source with //go:wasmexport stripped (it is
+  // wasm-only), plus a cgo wrapper that re-exports each function as cn_<name>.
+  const dir = await mkdtemp(join(tmpdir(), 'cn-go-'));
+  const stripped = source.replace(/^[ \t]*\/\/go:wasmexport.*\n/gm, '');
+  await writeFile(join(dir, 'main.go'), stripped);
+  const wrappers = sigs
+    .map(s => {
+      const params = s.params.map(p => `${p.name} ${goName(p.type)}`).join(', ');
+      const args = s.params.map(p => p.name).join(', ');
+      const ret = s.returns === 'void' ? '' : goName(s.returns);
+      const body = s.returns === 'void' ? `${s.name}(${args})` : `return ${s.name}(${args})`;
+      return `//export ${s.cName}\nfunc ${s.cName}(${params}) ${ret} { ${body} }`;
+    })
+    .join('\n');
+  await writeFile(join(dir, 'cn_cgo.go'), `package main\n\nimport "C"\n\n${wrappers}\n`);
+  await writeFile(join(dir, 'go.mod'), 'module cnpi\n\ngo 1.24\n');
+
+  const sdk = req.target.includes('simulator') ? 'iphonesimulator' : 'iphoneos';
+  const minFlag = sdk === 'iphonesimulator'
+    ? '-mios-simulator-version-min=15.0'
+    : '-miphoneos-version-min=15.0';
+  const sdkPath = (await run(['xcrun', '--sdk', sdk, '--show-sdk-path'])).stdout.trim();
+  const clang = (await run(['xcrun', '--sdk', sdk, '-f', 'clang'])).stdout.trim();
+  const ccFlags = `${clang} -isysroot ${sdkPath} ${minFlag} -arch arm64`;
+
+  const goArchive = join(dir, 'libgo_raw.a');
+  const r = await run(
+    [resolveGo(), 'build', '-buildmode=c-archive', '-o', goArchive, '.'],
+    dir,
+    { CGO_ENABLED: '1', GOOS: 'ios', GOARCH: 'arm64', CC: ccFlags, CGO_CFLAGS: `-isysroot ${sdkPath} ${minFlag} -arch arm64` }
+  );
+  if (r.code !== 0) return { ok: false, error: r.stderr.trim() || 'go c-archive failed' };
+
+  // Dispatch shim: extern cn_<name>, called via the FnSig.cName the parser set.
+  const shim = generateDispatch(sigs, req.symbol);
+  const shimName = `cn_dispatch${req.symbol}.zig`;
+  await writeFile(join(dir, shimName), shim);
+  const shimObj = join(dir, `cn_shim${req.symbol}.o`);
+  const sr = await run(
+    [resolveZig(), 'build-obj', shimName, '-target', req.target, '-O', 'ReleaseFast', `-femit-bin=${shimObj}`],
+    dir
+  );
+  if (sr.code !== 0) return { ok: false, error: sr.stderr.trim() || 'shim build failed' };
+
+  // Combine the Go archive and the shim into the output library.
+  const lr = await run(['xcrun', 'libtool', '-static', goArchive, shimObj, '-o', req.outPath], dir);
+  if (lr.code !== 0) return { ok: false, error: lr.stderr.trim() || 'libtool failed' };
+  await cp(join(dir, shimName), join(req.sourceDir, shimName)).catch(() => {});
+  return { ok: true, artifactPath: req.outPath };
+}
+
+// Zig type back to a Go type, for the generated cgo wrapper signatures.
+function goName(zig: string): string {
+  for (const [go, z] of Object.entries(GO_TO_ZIG)) if (z === zig && go !== 'int' && go !== 'uint' && go !== 'byte') return go;
+  return zig;
 }
 
 async function build(req: NativeLibRequest, lang: 'zig' | 'c' | 'cpp'): Promise<NativeLibResult> {
