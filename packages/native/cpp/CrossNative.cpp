@@ -11,7 +11,7 @@ namespace {
  *
  * The native layer deliberately knows nothing about languages. Which languages
  * exist, which are supported and what they compile to is decided once, in
- * @melodyleonard/languages; here the only question is what kind of artifact we
+ * @cross-native/languages; here the only question is what kind of artifact we
  * were handed. `language` is carried through for diagnostics only.
  */
 bool hasSuffix(const std::string& path, const std::string& suffix) {

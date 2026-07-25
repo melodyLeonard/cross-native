@@ -2,7 +2,7 @@
  * Core type definitions for CrossNative
  */
 
-import type { LanguageId } from '@melodyleonard/languages';
+import type { LanguageId } from '@cross-native/languages';
 
 /** One parameter of a declared signature. */
 export interface SignatureParam {

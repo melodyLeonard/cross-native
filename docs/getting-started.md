@@ -257,7 +257,7 @@ Numbers cross by value. Arrays are copied into the module's memory, which needs
 the module to export `cn_alloc`/`cn_free`:
 
 ```ts
-import {inBuffer, outBuffer} from '@melodyleonard/core';
+import {inBuffer, outBuffer} from '@cross-native/core';
 
 await compute.call('sum', [inBuffer([1, 2, 3]), 3]);       // read-only input
 await compute.call('multiply', [a, b, outBuffer(9), 3]);   // module writes output

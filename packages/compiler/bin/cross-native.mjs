@@ -20,7 +20,7 @@ import {
   listLanguages,
   requireUsableLanguage,
   isUsable,
-} from '@melodyleonard/languages';
+} from '@cross-native/languages';
 import {
   compile,
   compileAot,
@@ -32,7 +32,7 @@ import {
   compileZigNativeLib,
   compileClangNativeLib,
   compileGoNativeLib,
-} from '@melodyleonard/compiler';
+} from '@cross-native/compiler';
 
 const RUNTIME_CRATE = resolve(
   import.meta.dirname,

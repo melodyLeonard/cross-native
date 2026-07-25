@@ -17,9 +17,9 @@ const appRoot = process.cwd();
 const fromApp = (id) => require.resolve(id, { paths: [appRoot] });
 
 const upstream = require(fromApp('@react-native/metro-babel-transformer'));
-const CLI = fromApp('@melodyleonard/compiler/bin/cross-native.mjs');
+const CLI = fromApp('@cross-native/compiler/bin/cross-native.mjs');
 
-// Not imported from @melodyleonard/languages because Metro runs this in a worker
+// Not imported from @cross-native/languages because Metro runs this in a worker
 // without type-stripping and that package ships TypeScript.
 const LANGUAGE_BY_EXT = {
   '.rs': 'rust',

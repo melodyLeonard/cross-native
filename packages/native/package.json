@@ -48,8 +48,8 @@
     "@typescript-eslint/parser": "^7.0.0"
   },
   "dependencies": {
-    "@melodyleonard/core": "0.1.0-alpha.1",
-    "@melodyleonard/compiler": "0.1.0-alpha.1"
+    "@cross-native/core": "0.1.0-alpha.1",
+    "@cross-native/compiler": "0.1.0-alpha.1"
   },
   "peerDependencies": {
     "react": "^18.2.0",

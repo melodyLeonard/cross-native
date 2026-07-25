@@ -7,8 +7,8 @@
  */
 
 import { spawn } from 'node:child_process';
-import { requireUsableLanguage } from '@melodyleonard/languages';
-import type { LanguageDefinition, ToolchainTool } from '@melodyleonard/languages';
+import { requireUsableLanguage } from '@cross-native/languages';
+import type { LanguageDefinition, ToolchainTool } from '@cross-native/languages';
 
 export interface ToolStatus {
   tool: ToolchainTool;

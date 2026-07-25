@@ -6,7 +6,7 @@
  */
 
 import { NativeModules } from 'react-native';
-import { registerJSIInstaller } from '@melodyleonard/core';
+import { registerJSIInstaller } from '@cross-native/core';
 
 interface CrossNativeInstaller {
   install(): Promise<boolean>;
@@ -52,7 +52,7 @@ export function installCrossNative(): Promise<void> {
   return installation;
 }
 
-export * from '@melodyleonard/core';
+export * from '@cross-native/core';
 
 // Let the core reach the native module without depending on react-native.
 registerJSIInstaller(installCrossNative);

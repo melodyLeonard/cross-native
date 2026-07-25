@@ -12,7 +12,7 @@ import {
   UnsupportedLanguageError,
   requireLanguageForFile,
   getLanguageForFile,
-} from '@melodyleonard/languages';
+} from '@cross-native/languages';
 import { allCloseTo, check, checkRejects, section } from './harness.ts';
 import { processDataset } from './reference.ts';
 

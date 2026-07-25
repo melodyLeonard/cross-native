@@ -12,7 +12,7 @@ import { BackendError } from './backend.ts';
 import { normalizeArg, type NativeArg } from './buffers.ts';
 import { isJSIAvailable, JSIBackend } from './jsi.ts';
 import { buildCallables } from './callables.ts';
-import { requireUsableLanguage } from '@melodyleonard/languages';
+import { requireUsableLanguage } from '@cross-native/languages';
 
 export interface BridgeOptions {
   /** Use a specific backend instead of auto-detecting one. */

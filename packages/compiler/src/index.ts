@@ -1,5 +1,5 @@
 /**
- * @melodyleonard/compiler
+ * @cross-native/compiler
  *
  * Turns source in a supported language into a loadable artifact, and reports
  * clearly when the toolchain for that language is not installed.

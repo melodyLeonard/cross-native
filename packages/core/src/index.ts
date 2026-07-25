@@ -5,7 +5,7 @@
  *
  * @example
  * ```typescript
- * import { createNativeModule, outBuffer } from '@melodyleonard/core';
+ * import { createNativeModule, outBuffer } from '@cross-native/core';
  *
  * const compute = await createNativeModule({
  *   name: 'compute',
