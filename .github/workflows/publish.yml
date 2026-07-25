@@ -23,37 +23,25 @@ jobs:
 
       - run: npm install -g npm@latest
 
-      # Dependency order: languages first. --access public is required for the
-      # scoped @cross-native/* packages.
-      - name: Publish @cross-native/languages
-        working-directory: packages/languages
+      # Publish each package in dependency order. Idempotent: a version already
+      # on the registry is skipped, so re-runs are safe. Any real failure is
+      # surfaced as an annotation.
+      - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          W=$(npm whoami 2>&1 || echo "NOAUTH")
-          echo "::warning::whoami=$W"
-          if out=$(npm publish --tag alpha --access public 2>&1); then
-            echo "$out"
-          else
-            echo "$out"
-            echo "::error::$(echo "$out" | grep -iE 'npm error|forbidden|403|401|otp|two-factor|permission|E[A-Z]+' | tr '\n' ' ' | tail -c 500)"
-            exit 1
-          fi
-
-      - name: Publish @cross-native/core
-        run: npm publish --tag alpha --access public
-        working-directory: packages/core
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @cross-native/compiler
-        run: npm publish --tag alpha --access public
-        working-directory: packages/compiler
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish react-native-cross-native
-        run: npm publish --tag alpha --access public
-        working-directory: packages/native
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          for pkg in languages core compiler native; do
+            cd "packages/$pkg"
+            name=$(node -p "require('./package.json').name")
+            ver=$(node -p "require('./package.json').version")
+            if npm view "$name@$ver" version >/dev/null 2>&1; then
+              echo "$name@$ver already published — skipping"
+            elif out=$(npm publish --tag alpha --access public 2>&1); then
+              echo "published $name@$ver"
+            else
+              echo "$out"
+              echo "::error::$name: $(echo "$out" | grep -iE 'npm error|forbidden|403|401|otp|two-factor|permission|E[A-Z]+' | tr '\n' ' ' | tail -c 400)"
+              exit 1
+            fi
+            cd ../..
+          done
