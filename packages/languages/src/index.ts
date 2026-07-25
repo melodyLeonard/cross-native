@@ -1,5 +1,5 @@
 /**
- * @cross-native/languages
+ * @melodyleonard/languages
  *
  * The single source of truth for which languages CrossNative supports, which
  * file extensions they own, and what has to be installed to build them.

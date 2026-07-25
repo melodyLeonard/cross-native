@@ -1,5 +1,5 @@
 {
-  "name": "@cross-native/compiler",
+  "name": "@melodyleonard/compiler",
   "version": "0.1.0-alpha.1",
   "description": "Toolchain detection and compile drivers for CrossNative",
   "type": "module",
@@ -13,7 +13,7 @@
     "bin"
   ],
   "dependencies": {
-    "@cross-native/languages": "0.1.0-alpha.1"
+    "@melodyleonard/languages": "0.1.0-alpha.1"
   },
   "license": "Apache-2.0",
   "engines": {

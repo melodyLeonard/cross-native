@@ -6,7 +6,7 @@
  * rather than something invented here.
  */
 
-import { requireUsableLanguage } from '@cross-native/languages';
+import { requireUsableLanguage } from '@melodyleonard/languages';
 import { compileRust } from './drivers/rust.ts';
 import { compileZig } from './drivers/zig.ts';
 import { compileC, compileCpp } from './drivers/clang.ts';

@@ -39,7 +39,7 @@ const compute = await createNativeModule({
 const result = await compute.call('heavy', [1_000_000]);
 ```
 
-Metro compiles the source on demand through `@cross-native/compiler`, so you
+Metro compiles the source on demand through `@melodyleonard/compiler`, so you
 never run cargo, zig, or go by hand.
 
 **New here?** Follow the [getting-started guide](docs/getting-started.md) — a
@@ -111,7 +111,7 @@ Numbers cross by value. Arrays are copied into the module's linear memory, which
 needs the module to export `cn_alloc`/`cn_free`:
 
 ```typescript
-import { inBuffer, outBuffer } from '@cross-native/core';
+import { inBuffer, outBuffer } from '@melodyleonard/core';
 
 await compute.call('sum_array', [inBuffer([1, 2, 3]), 3]);
 await compute.call('matrix_multiply', [a, b, outBuffer(9), 3]);

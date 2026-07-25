@@ -166,7 +166,7 @@ libcrossnative.so: $(WAMR_OBJECTS) $(CROSSNATIVE_OBJECTS)
 test_runner: test/test_main.cpp libcrossnative.a
 	$(CXX) $(CXXFLAGS) -o $@ $< -L. -lcrossnative $(LDFLAGS)
 
-# stdio JSON host, used by the Node backend in @cross-native/core
+# stdio JSON host, used by the Node backend in @melodyleonard/core
 crossnative-host: host/host_main.cpp libcrossnative.a
 	$(CXX) $(CXXFLAGS) -o $@ $< -L. -lcrossnative $(LDFLAGS)
 

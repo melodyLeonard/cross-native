@@ -2,7 +2,7 @@
  * The language table.
  *
  * Adding a language means adding an entry here and a compile driver in
- * @cross-native/compiler — nothing else in the codebase should need to learn
+ * @melodyleonard/compiler — nothing else in the codebase should need to learn
  * a new name.
  */
 

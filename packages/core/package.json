@@ -1,5 +1,5 @@
 {
-  "name": "@cross-native/core",
+  "name": "@melodyleonard/core",
   "version": "0.1.0-alpha.1",
   "description": "Core API for CrossNative - run native code in React Native",
   "main": "src/index.ts",
@@ -33,7 +33,7 @@
   },
   "react-native": "src/index.ts",
   "dependencies": {
-    "@cross-native/languages": "0.1.0-alpha.1"
+    "@melodyleonard/languages": "0.1.0-alpha.1"
   },
   "publishConfig": {
     "access": "public"

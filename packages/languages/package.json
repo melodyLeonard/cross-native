@@ -1,5 +1,5 @@
 {
-  "name": "@cross-native/languages",
+  "name": "@melodyleonard/languages",
   "version": "0.1.0-alpha.1",
   "description": "Language registry and validation for CrossNative",
   "type": "module",
