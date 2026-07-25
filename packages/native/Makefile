@@ -10,10 +10,38 @@ CXX = clang++
 
 WAMR_ROOT = wamr
 
+# Host OS and architecture, so the same Makefile builds on macOS (arm64/x86_64)
+# and Linux (x86_64) — used by CI and local dev. Device builds go through the
+# podspec (iOS) and CMake (Android) instead.
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+
+ifeq ($(UNAME_S),Darwin)
+  PLATFORM_DEF  = -DBH_PLATFORM_DARWIN
+  PLATFORM_DIR  = darwin
+  SDK_ISYSROOT  = -isysroot $(shell xcrun --sdk macosx --show-sdk-path)
+  LDFLAGS       = -lpthread
+else
+  PLATFORM_DEF  = -DBH_PLATFORM_LINUX
+  PLATFORM_DIR  = linux
+  SDK_ISYSROOT  =
+  LDFLAGS       = -lpthread -ldl
+endif
+
+ifneq (,$(filter arm64 aarch64,$(UNAME_M)))
+  ARCH_DEF        = -DBUILD_TARGET_AARCH64 -DBUILD_TARGET=\"aarch64v8\"
+  ARCH_RELOC      = $(WAMR_ROOT)/core/iwasm/aot/arch/aot_reloc_aarch64.c
+  ARCH_TRAMPOLINE = $(WAMR_ROOT)/core/iwasm/common/arch/invokeNative_aarch64.s
+else
+  ARCH_DEF        = -DBUILD_TARGET_X86_64 -DBUILD_TARGET=\"X86_64\"
+  ARCH_RELOC      = $(WAMR_ROOT)/core/iwasm/aot/arch/aot_reloc_x86_64.c
+  ARCH_TRAMPOLINE = $(WAMR_ROOT)/core/iwasm/common/arch/invokeNative_em64.s
+endif
+
 # Feature defines — both the cmake-style WAMR_BUILD_ and the internal WASM_ENABLE_ prefixes.
 WAMR_DEFS = \
 	-DBH_MALLOC=wasm_runtime_malloc -DBH_FREE=wasm_runtime_free \
-	-DBH_PLATFORM_DARWIN -DBUILD_TARGET_AARCH64 -DBUILD_TARGET=\"aarch64v8\" \
+	$(PLATFORM_DEF) $(ARCH_DEF) \
 	-DWASM_ENABLE_INTERP=1 -DWASM_ENABLE_FAST_INTERP=1 \
 	-DWASM_ENABLE_AOT=1 -DWASM_ENABLE_AOT_INTRINSICS=1 -DWASM_ENABLE_QUICK_AOT_ENTRY=1 \
 	-DWASM_ENABLE_LIBC_BUILTIN=1 -DWASM_ENABLE_LIBC_WASI=1 -DWASM_ENABLE_MODULE_INST_CONTEXT=1 \
@@ -37,27 +65,19 @@ WAMR_INC = \
 	-I$(WAMR_ROOT)/core/shared/include \
 	-I$(WAMR_ROOT)/core/shared/mem-alloc \
 	-I$(WAMR_ROOT)/core/shared/platform/include \
-	-I$(WAMR_ROOT)/core/shared/platform/darwin \
+	-I$(WAMR_ROOT)/core/shared/platform/$(PLATFORM_DIR) \
 	-I$(WAMR_ROOT)/core/shared/utils \
 	-I$(WAMR_ROOT)/core/shared/utils/uncommon
 
 CFLAGS   = -O3 -fPIC -I. -Icpp $(WAMR_INC) $(WAMR_DEFS) -std=c11
 CXXFLAGS = -O3 -fPIC -I. -Icpp $(WAMR_INC) $(WAMR_DEFS) -std=c++17
 
-# macOS puts dlopen in libSystem; only Linux needs an explicit -ldl.
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-  LDFLAGS = -lpthread
-else
-  LDFLAGS = -lpthread -ldl
-endif
-
 WAMR_SOURCES = \
 	$(WAMR_ROOT)/core/iwasm/aot/aot_intrinsic.c \
 	$(WAMR_ROOT)/core/iwasm/aot/aot_loader.c \
 	$(WAMR_ROOT)/core/iwasm/aot/aot_runtime.c \
-	$(WAMR_ROOT)/core/iwasm/aot/arch/aot_reloc_aarch64.c \
-	$(WAMR_ROOT)/core/iwasm/common/arch/invokeNative_aarch64.s \
+	$(ARCH_RELOC) \
+	$(ARCH_TRAMPOLINE) \
 	$(WAMR_ROOT)/core/iwasm/common/wasm_application.c \
 	$(WAMR_ROOT)/core/iwasm/common/wasm_blocking_op.c \
 	$(WAMR_ROOT)/core/iwasm/common/wasm_c_api.c \
@@ -92,7 +112,7 @@ WAMR_SOURCES = \
 	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_sleep.c \
 	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_thread.c \
 	$(WAMR_ROOT)/core/shared/platform/common/posix/posix_time.c \
-	$(WAMR_ROOT)/core/shared/platform/darwin/platform_init.c \
+	$(WAMR_ROOT)/core/shared/platform/$(PLATFORM_DIR)/platform_init.c \
 	$(WAMR_ROOT)/core/shared/utils/bh_assert.c \
 	$(WAMR_ROOT)/core/shared/utils/bh_bitmap.c \
 	$(WAMR_ROOT)/core/shared/utils/bh_common.c \
@@ -128,7 +148,7 @@ all: libcrossnative.a
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 %.o: %.s
-	$(CC) -x assembler-with-cpp -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk $(WAMR_DEFS) -c $< -o $@
+	$(CC) -x assembler-with-cpp $(SDK_ISYSROOT) $(WAMR_DEFS) -c $< -o $@
 
 libcrossnative.a: $(WAMR_OBJECTS) $(CROSSNATIVE_OBJECTS)
 	ar rcs $@ $^

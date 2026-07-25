@@ -30,7 +30,7 @@ jobs:
           toolchain: stable
           target: wasm32-unknown-unknown
 
-      # The C++ core suite: builds wasm3 plus CrossNative, compiles the Rust
+      # The C++ core suite: builds WAMR plus CrossNative, compiles the Rust
       # fixture to WASM, and runs the runtime checks.
       - name: Native test suite
         run: npm run test:native
