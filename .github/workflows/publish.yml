@@ -26,10 +26,19 @@ jobs:
       # Dependency order: languages first. --access public is required for the
       # scoped @cross-native/* packages.
       - name: Publish @cross-native/languages
-        run: npm publish --tag alpha --access public
         working-directory: packages/languages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          W=$(npm whoami 2>&1 || echo "NOAUTH")
+          echo "::warning::whoami=$W"
+          if out=$(npm publish --tag alpha --access public 2>&1); then
+            echo "$out"
+          else
+            echo "$out"
+            echo "::error::$(echo "$out" | grep -iE 'npm error|forbidden|403|401|otp|two-factor|permission|E[A-Z]+' | tr '\n' ' ' | tail -c 500)"
+            exit 1
+          fi
 
       - name: Publish @cross-native/core
         run: npm publish --tag alpha --access public
