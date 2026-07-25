@@ -170,14 +170,50 @@ slower than JavaScript. The two ways to get real native speed:
 
 ### Android — ahead-of-time compilation
 
-Android can load compiled code at runtime. Start Metro with AOT turned on:
+**What "AOT" means here.** By default your compiled function is shipped as a
+`.wasm` file and executed by an interpreter — a program that reads one
+WebAssembly instruction at a time. That is portable but slow. Ahead-of-time
+(AOT) compilation instead turns the `.wasm` into real machine code for the
+device *before* it ships, and the runtime just loads and runs it. Android
+permits an app to load executable code at runtime, so this is allowed there (iOS
+does not — see the next section).
+
+**The tool: `wamrc`.** The conversion from `.wasm` to native code is done by
+`wamrc`, the ahead-of-time compiler that ships with the WebAssembly Micro
+Runtime (WAMR), the same runtime CrossNative embeds. It is a large LLVM-based
+binary, so it is not bundled in the npm package. You get it by building WAMR's
+compiler once:
 
 ```
-CROSSNATIVE_AOT=1 CROSSNATIVE_WAMRC=/path/to/wamrc npm start
+git clone https://github.com/bytecodealliance/wasm-micro-runtime
+cd wasm-micro-runtime/wamr-compiler
+./build_llvm.sh        # one-time, downloads/builds LLVM (slow)
+mkdir build && cd build && cmake .. && make
+# the binary is now ./wamrc
 ```
 
-`wamrc` is the WebAssembly-to-native compiler. Point `CROSSNATIVE_WAMRC` at it.
-With AOT on, every language runs at native speed on Android.
+**Turning it on.** Point CrossNative at that binary and enable AOT when you start
+Metro:
+
+```
+CROSSNATIVE_AOT=1 CROSSNATIVE_WAMRC=/absolute/path/to/wamrc npm start
+```
+
+- `CROSSNATIVE_AOT=1` tells the Metro transformer to run `wamrc` after compiling
+  your source, so the bundle carries a native `.aot` module instead of a `.wasm`
+  one.
+- `CROSSNATIVE_WAMRC` is the absolute path to the `wamrc` binary above. If it is
+  unset, CrossNative logs a note and falls back to the interpreter `.wasm`
+  rather than failing the build.
+
+You'll see lines like `aot  .../compute.aot` in the Metro output when it worked.
+With AOT on, every language runs at native speed on Android — typically tens of
+milliseconds where the interpreter took seconds.
+
+**Note on architecture.** An `.aot` file is native code for one CPU
+architecture. CrossNative builds it for `aarch64` (arm64), which covers modern
+devices and Apple-silicon emulators. On a non-arm64 device the runtime falls
+back to the interpreter for that module.
 
 ### iOS — link the code into the app
 
