@@ -61,12 +61,21 @@ export function withPlugins(
   config: Pick<NativeModuleConfig, 'name' | 'plugins'>
 ): NativeModule {
   const plugins: Plugin[] = config.plugins ?? [];
-  if (plugins.length === 0) return module;
 
   return {
     ...module,
 
     call: async (method: string, args: unknown[] = [], options?: CallOptions) => {
+      // Fast path: no plugins to run, so skip the call context and just honor an
+      // optional timeout. A per-call timeout must work whether or not plugins
+      // are configured, so it lives here rather than only in the plugin path.
+      if (plugins.length === 0) {
+        const call = module.call(method, args, options);
+        return options?.timeout
+          ? withTimeout(call, options.timeout, config.name, method)
+          : call;
+      }
+
       let context: CallContext = {
         callId: generateCallId(),
         moduleId: config.name,

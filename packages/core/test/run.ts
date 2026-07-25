@@ -19,6 +19,7 @@ import { PerformancePlugin } from '../src/plugins/performance.ts';
 import type { NativeModule } from '../src/types.ts';
 import { printTable, runBenchmarks } from './benchmark.ts';
 import { testCorrectness } from './correctness.ts';
+import { testHardening } from './hardening.ts';
 import { HOST_BINARY, WASM_FIXTURE, check, formatMs, results, section } from './harness.ts';
 
 /**
@@ -68,6 +69,7 @@ async function main(): Promise<void> {
 
   try {
     await testCorrectness(compute);
+    await testHardening();
     const rows = await runBenchmarks(compute);
     await testNonBlocking(compute);
     printTable(rows);
