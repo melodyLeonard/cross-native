@@ -19,8 +19,10 @@ export { embedWasm, toBase64 } from './embed.ts';
 export { compileAot, resolveWamrc, type AotResult } from './aot.ts';
 export {
   compileZigNativeLib,
+  compileClangNativeLib,
   parseZigExports,
-  generateZigDispatch,
+  parseCExports,
+  generateDispatch,
   type NativeLibRequest,
   type NativeLibResult,
   type FnSig,

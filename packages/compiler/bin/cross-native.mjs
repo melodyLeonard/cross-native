@@ -30,6 +30,7 @@ import {
   inspectToolchain,
   describeMissing,
   compileZigNativeLib,
+  compileClangNativeLib,
 } from '@cross-native/compiler';
 
 const RUNTIME_CRATE = resolve(
@@ -129,23 +130,27 @@ async function build({ dir, flags }) {
   log(`  embedded  ${out}  (${size.toLocaleString()} bytes)`);
 }
 
-// Build a native static library for the iOS linked-FFI path (Zig only for now):
+// Build a native static library for the iOS linked-FFI path (Zig, C, C++):
 //   cross-native build-native <dir> --language zig --entry compute.zig \
 //     --symbol _zig --target aarch64-ios-simulator --out path/to/lib.a
 async function buildNative({ dir, flags }) {
   const sourceDir = resolve(dir);
   const language = flags.language ?? 'zig';
-  if (language !== 'zig') {
-    console.error(`build-native currently supports --language zig (got ${language})`);
+  if (!['zig', 'c', 'cpp'].includes(language)) {
+    console.error(`build-native supports --language zig|c|cpp (got ${language})`);
     process.exit(2);
   }
-  const symbol = typeof flags.symbol === 'string' ? flags.symbol : '_zig';
+  const defaultSymbol = { zig: '_zig', c: '_c', cpp: '_cpp' }[language];
+  const symbol = typeof flags.symbol === 'string' ? flags.symbol : defaultSymbol;
   const target = typeof flags.target === 'string' ? flags.target : 'aarch64-ios-simulator';
-  const entry = typeof flags.entry === 'string' ? flags.entry : 'main.zig';
+  const entry = typeof flags.entry === 'string' ? flags.entry : `main.${language}`;
   const outPath = resolve(flags.out ?? join(sourceDir, `lib${basename(sourceDir)}.a`));
+  const req = { sourceDir, entryFile: entry, target, symbol, outPath };
 
   console.log(`Building ${language} static library for ${target}`);
-  const result = await compileZigNativeLib({ sourceDir, entryFile: entry, target, symbol, outPath });
+  const result = language === 'zig'
+    ? await compileZigNativeLib(req)
+    : await compileClangNativeLib(req, language);
   if (!result.ok) {
     console.error(`\n${result.error}`);
     process.exit(1);
