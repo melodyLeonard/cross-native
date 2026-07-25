@@ -16,8 +16,8 @@ zig, or go on the command line.
 
 ## Prerequisites
 
-- **Node 22.6 or newer** (`node --version`). CrossNative runs its TypeScript
-  through Node's type stripping, which needs 22.6+.
+- **Node 20 or newer** (`node --version`). Recent React Native already requires
+  this.
 - A working React Native project (this guide assumes RN 0.76+).
 - Xcode (for iOS) and/or Android Studio (for Android), as usual for React Native.
 
@@ -28,7 +28,8 @@ npm install react-native-cross-native
 cd ios && pod install && cd ..
 ```
 
-Android links automatically; no extra step.
+That one package is all you need — it pulls in the compiler and core packages
+automatically. Android links automatically; no extra step.
 
 ## Step 2 — Tell Metro how to compile your source files
 
