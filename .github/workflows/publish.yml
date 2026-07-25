@@ -1,0 +1,38 @@
+name: Publish
+
+# Manual trigger. Publishes all four packages to npm using OIDC trusted
+# publishing, so no npm token or 2FA code is needed — GitHub's identity is
+# exchanged for a short-lived npm token, and each package must list this repo
+# and workflow as a trusted publisher on npmjs.com.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for OIDC
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing needs a recent npm; setup-node ships an older one.
+      - run: npm install -g npm@latest
+      - run: npm --version
+
+      # Publish in dependency order. --provenance records where each build came
+      # from; access public is required for the scoped packages.
+      - run: npm publish --tag alpha --provenance --access public
+        working-directory: packages/languages
+      - run: npm publish --tag alpha --provenance --access public
+        working-directory: packages/core
+      - run: npm publish --tag alpha --provenance --access public
+        working-directory: packages/compiler
+      - run: npm publish --tag alpha --provenance --access public
+        working-directory: packages/native
