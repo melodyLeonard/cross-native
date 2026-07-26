@@ -46,12 +46,38 @@ async function testTimeoutWithoutPlugins(backend: Backend): Promise<void> {
   check('call without a timeout still resolves', typeof value === 'number');
 }
 
+/** Reject a promise that outruns `ms`, so a hang shows up as a failure. */
+function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`hung: no answer within ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
+/** Bad input (a non-number in a numeric array) must reject, not hang or crash. */
+async function testBadArrayElement(backend: Backend): Promise<void> {
+  const mod = await loadPlain(backend, 'hardening-badinput');
+  let rejected = false;
+  let hung = false;
+  try {
+    await withDeadline(mod.call('sum_array', [[1, 'x', 3]]), 3000);
+  } catch (error) {
+    const message = (error as Error).message;
+    hung = message.startsWith('hung:');
+    rejected = !hung;
+  }
+  check('malformed array element rejects cleanly (no hang)', rejected && !hung);
+}
+
 export async function testHardening(): Promise<void> {
   section('Hardening');
 
   const backend = await NodeHostBackend.create({ hostPath: HOST_BINARY });
   try {
     await testTimeoutWithoutPlugins(backend);
+    await testBadArrayElement(backend);
   } finally {
     backend.dispose();
   }

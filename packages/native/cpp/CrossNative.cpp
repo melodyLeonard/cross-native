@@ -271,7 +271,18 @@ void CrossNative::callFunctionAsync(
       settings.priority,
       [this, moduleId, functionName, argsJson,
        zeroCopy = settings.zeroCopy, callback = std::move(callback)] {
-        callback(executeCall(moduleId, functionName, argsJson, zeroCopy));
+        // executeCall already turns std::exceptions into error results, but the
+        // callback must fire no matter what — otherwise the JS promise never
+        // settles. Guarantee it here even for a stray non-std throw.
+        NativeResult result;
+        try {
+          result = executeCall(moduleId, functionName, argsJson, zeroCopy);
+        } catch (const std::exception& e) {
+          result = {.success = false, .error = std::string("Exception: ") + e.what()};
+        } catch (...) {
+          result = {.success = false, .error = "Unknown error during native call"};
+        }
+        callback(result);
       });
 }
 
