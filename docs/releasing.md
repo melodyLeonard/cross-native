@@ -35,6 +35,13 @@ code is ever handled locally.
 1. Bump the version in all four `packages/*/package.json`. Keep them in lockstep,
    and update the `@cross-native/*` entries in the dependents' `dependencies` to
    the same version.
+1. Tag the Rust runtime crate and push the tag: the generated Cargo manifest
+   pins `crossnative` to a git tag (`CRATE_TAG` in
+   `packages/compiler/src/drivers/rust.ts`) so installed-from-npm builds are
+   reproducible. Create a matching tag on the release commit
+   (`git tag crossnative-v<version> <commit> && git push origin crossnative-v<version>`)
+   and bump `CRATE_TAG` to it. Without this, a Rust build from a fresh install
+   would fail to resolve the crate.
 2. Commit with `[publish]` in the message and push to `main` (or run the
    **Publish** workflow manually from the Actions tab). The workflow only
    publishes on `[publish]` commits or manual dispatch, so ordinary pushes never
