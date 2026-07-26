@@ -112,6 +112,7 @@ async function build({ dir, flags }) {
       if (aot.ok) {
         artifact = aot.artifactPath;
         log(`  aot       ${artifact}`);
+        log('  note: AOT is arm64-only; x86_64 devices/emulators fall back to the interpreter');
       } else {
         log(`  note: AOT failed (${aot.error}) — shipping interpreter WASM`);
       }

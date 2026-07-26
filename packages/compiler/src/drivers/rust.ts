@@ -6,7 +6,7 @@
  * adding a sibling of this file — nothing outside `drivers/` changes.
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { access, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { run } from '../toolchain.ts';
 import type { CompileRequest, CompileResult } from '../types.ts';
@@ -57,7 +57,7 @@ strip = "symbols"
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await readFile(path);
+    await access(path);
     return true;
   } catch {
     return false;
