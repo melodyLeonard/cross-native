@@ -110,6 +110,26 @@ async function testLargeBuffer(backend: Backend): Promise<void> {
   check('large buffer (800 KB) round-trips correctly', sum === n, String(sum));
 }
 
+/**
+ * Disposing one module must not tear down a backend the caller supplied and
+ * shares with other modules.
+ */
+async function testSharedBackendOwnership(backend: Backend): Promise<void> {
+  const a = await loadPlain(backend, 'hardening-shared-a');
+  const b = await loadPlain(backend, 'hardening-shared-b');
+
+  a.dispose(); // shares `backend` with b — must leave it running
+
+  let stillWorks = false;
+  try {
+    stillWorks = (await b.call('add', [1, 2])) === 3;
+  } catch {
+    stillWorks = false;
+  }
+  check('disposing one module keeps a shared backend alive', stillWorks);
+  b.dispose();
+}
+
 export async function testHardening(): Promise<void> {
   section('Hardening');
 
@@ -119,6 +139,7 @@ export async function testHardening(): Promise<void> {
     await testAbortSignal(backend);
     await testBadArrayElement(backend);
     await testLargeBuffer(backend);
+    await testSharedBackendOwnership(backend);
   } finally {
     backend.dispose();
   }

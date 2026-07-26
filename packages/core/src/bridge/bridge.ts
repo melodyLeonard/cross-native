@@ -24,6 +24,9 @@ export class NativeBridge {
   private modules = new Map<string, NativeModule>();
   private initializing: Promise<Backend> | null = null;
   private readonly options: BridgeOptions;
+  // A backend the caller passed in is shared and not ours to tear down; only a
+  // backend this bridge created is disposed on dispose().
+  private ownsBackend = false;
 
   constructor(options: BridgeOptions = {}) {
     this.options = options;
@@ -58,6 +61,7 @@ export class NativeBridge {
     // Imported statically: React Native turns a dynamic import() into a lazy
     // bundle request at runtime, which fails outside a dev server.
     if (isJSIAvailable()) {
+      this.ownsBackend = true;
       return JSIBackend.create();
     }
 
@@ -173,7 +177,7 @@ export class NativeBridge {
     for (const module of this.modules.values()) module.dispose();
     this.modules.clear();
 
-    await this.backend?.dispose();
+    if (this.ownsBackend) await this.backend?.dispose();
     this.backend = null;
   }
 }
