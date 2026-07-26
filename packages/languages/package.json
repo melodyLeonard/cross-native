@@ -1,6 +1,6 @@
 {
   "name": "@cross-native/languages",
-  "version": "0.1.0-alpha.6",
+  "version": "0.1.0-alpha.7",
   "description": "Language registry and validation for CrossNative",
   "type": "module",
   "main": "dist/index.js",
