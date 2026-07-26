@@ -214,6 +214,7 @@ NativeResult CrossNative::executeCall(const std::string& moduleId,
                                       const std::string& argsJson,
                                       bool zeroCopy) {
   const auto startTime = std::chrono::high_resolution_clock::now();
+  totalCalls_.fetch_add(1, std::memory_order_relaxed);
 
   try {
     std::shared_ptr<NativeModule> module;
@@ -227,8 +228,10 @@ NativeResult CrossNative::executeCall(const std::string& moduleId,
     }
 
     auto envelope = module->call(functionName, argsJson, zeroCopy);
-    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
-        std::chrono::high_resolution_clock::now() - startTime).count() / 1000.0;
+    const auto elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::high_resolution_clock::now() - startTime).count();
+    const double elapsed = elapsedUs / 1000.0;
+    totalCallUs_.fetch_add(static_cast<uint64_t>(elapsedUs), std::memory_order_relaxed);
 
     auto result = unwrapEnvelope(envelope);
     result.metrics = {
@@ -380,6 +383,8 @@ std::unordered_map<std::string, double> CrossNative::getStats() {
     std::lock_guard<std::mutex> lock(buffersMutex_);
     stats["active_buffers"] = static_cast<double>(buffers_.size());
   }
+  stats["total_calls"] = static_cast<double>(totalCalls_.load(std::memory_order_relaxed));
+  stats["total_call_ms"] = totalCallUs_.load(std::memory_order_relaxed) / 1000.0;
   return stats;
 }
 

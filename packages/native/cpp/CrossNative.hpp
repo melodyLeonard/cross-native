@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <future>
 #include <optional>
+#include <atomic>
 #include <functional>
 
 namespace crossnative {
@@ -165,7 +166,12 @@ private:
     std::mutex buffersMutex_;
     std::unordered_map<std::string, std::shared_ptr<SharedBuffer>> buffers_;
     int nextBufferId_ = 0;
-    
+
+    // Aggregate call counters, surfaced by getStats(). Microseconds are kept as
+    // an integer so the counter can be a lock-free atomic under C++17.
+    std::atomic<uint64_t> totalCalls_{0};
+    std::atomic<uint64_t> totalCallUs_{0};
+
     LogLevel logLevel_ = LogLevel::Info;
 
     void log(LogLevel level, const std::string& message);

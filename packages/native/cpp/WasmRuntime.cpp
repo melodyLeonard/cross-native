@@ -655,10 +655,6 @@ json errorResult(const std::string& message) {
 struct WasmRuntime::Impl {
     mutable std::mutex modulesMutex;
     std::unordered_map<std::string, std::shared_ptr<ModuleEntry>> modules;
-
-    mutable std::mutex statsMutex;
-    double totalCallMs  = 0.0;
-    uint64_t totalCalls = 0;
 };
 
 // ─── WasmRuntime public API ───────────────────────────────────────────────
@@ -862,14 +858,6 @@ std::string WasmRuntime::getManifest(const std::string& moduleId) const {
 bool WasmRuntime::isLoaded(const std::string& moduleId) const {
     std::lock_guard<std::mutex> lock(pImpl->modulesMutex);
     return pImpl->modules.count(moduleId) > 0;
-}
-
-std::unordered_map<std::string, double> WasmRuntime::getStats() const {
-    std::lock_guard<std::mutex> lock(pImpl->statsMutex);
-    return {
-        {"totalCallMs",  pImpl->totalCallMs},
-        {"totalCalls",   static_cast<double>(pImpl->totalCalls)},
-    };
 }
 
 // ─── Free helpers ─────────────────────────────────────────────────────────

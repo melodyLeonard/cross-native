@@ -130,11 +130,31 @@ async function testSharedBackendOwnership(backend: Backend): Promise<void> {
   b.dispose();
 }
 
+/** getStats reports real call totals, not zeros. */
+async function testStatsCounters(backend: NodeHostBackend): Promise<void> {
+  const mod = await loadPlain(backend, 'hardening-stats');
+  const before = await backend.stats();
+  for (let i = 0; i < 3; i++) await mod.call('add', [i, 1]);
+  const after = await backend.stats();
+
+  check(
+    'getStats counts calls',
+    (after.total_calls ?? 0) - (before.total_calls ?? 0) >= 3,
+    `${before.total_calls} -> ${after.total_calls}`
+  );
+  check(
+    'getStats accumulates call time',
+    (after.total_call_ms ?? 0) >= (before.total_call_ms ?? 0),
+    `${after.total_call_ms}ms`
+  );
+}
+
 export async function testHardening(): Promise<void> {
   section('Hardening');
 
   const backend = await NodeHostBackend.create({ hostPath: HOST_BINARY });
   try {
+    await testStatsCounters(backend);
     await testTimeoutWithoutPlugins(backend);
     await testAbortSignal(backend);
     await testBadArrayElement(backend);
