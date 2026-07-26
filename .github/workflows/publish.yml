@@ -41,10 +41,13 @@ jobs:
             cd "packages/$pkg"
             name=$(node -p "require('./package.json').name")
             ver=$(node -p "require('./package.json').version")
+            # A prerelease version (e.g. 1.2.3-alpha.4) ships under its prerelease
+            # dist-tag; a plain version ships under "latest".
+            if [[ "$ver" == *-* ]]; then tag="${ver#*-}"; tag="${tag%%.*}"; else tag="latest"; fi
             if npm view "$name@$ver" version >/dev/null 2>&1; then
               echo "$name@$ver already published — skipping"
-            elif out=$(npm publish --tag alpha --access public 2>&1); then
-              echo "published $name@$ver"
+            elif out=$(npm publish --tag "$tag" --access public 2>&1); then
+              echo "published $name@$ver (tag: $tag)"
             else
               echo "$out"
               echo "::error::$name: $(echo "$out" | grep -iE 'npm error|forbidden|403|401|otp|two-factor|permission|E[A-Z]+' | tr '\n' ' ' | tail -c 400)"

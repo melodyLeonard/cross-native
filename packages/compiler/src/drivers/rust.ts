@@ -27,7 +27,7 @@ const CRATE_GIT =
 // Pin the git dependency to a release tag so builds are reproducible and match
 // the installed package rather than floating on the default branch. Bumped per
 // release (see docs/releasing.md); overridable for forks and local testing.
-const CRATE_TAG = process.env.CROSSNATIVE_CRATE_TAG ?? 'crossnative-v0.1.0-alpha.6';
+const CRATE_TAG = process.env.CROSSNATIVE_CRATE_TAG ?? 'crossnative-v0.1.0';
 
 function defaultManifest(
   crateName: string,
