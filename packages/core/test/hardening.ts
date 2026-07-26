@@ -71,6 +71,30 @@ async function testBadArrayElement(backend: Backend): Promise<void> {
   check('malformed array element rejects cleanly (no hang)', rejected && !hung);
 }
 
+/** An AbortSignal must reject a pending call. */
+async function testAbortSignal(backend: Backend): Promise<void> {
+  const mod = await loadPlain(backend, 'hardening-abort');
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 5);
+
+  let aborted = false;
+  try {
+    await mod.call('benchmark_heavy', [2_000_000], { signal: controller.signal });
+  } catch (error) {
+    aborted = /aborted/i.test((error as Error).message);
+  }
+  check('AbortSignal rejects a pending call', aborted);
+
+  // An already-aborted signal rejects immediately.
+  let preAborted = false;
+  try {
+    await mod.call('benchmark_heavy', [10_000], { signal: AbortSignal.abort() });
+  } catch (error) {
+    preAborted = /aborted/i.test((error as Error).message);
+  }
+  check('already-aborted signal rejects immediately', preAborted);
+}
+
 /**
  * A large buffer (past the 512 KB module-malloc heap) still round-trips — array
  * arguments grow the module's own linear memory via cn_alloc — and the
@@ -92,6 +116,7 @@ export async function testHardening(): Promise<void> {
   const backend = await NodeHostBackend.create({ hostPath: HOST_BINARY });
   try {
     await testTimeoutWithoutPlugins(backend);
+    await testAbortSignal(backend);
     await testBadArrayElement(backend);
     await testLargeBuffer(backend);
   } finally {
