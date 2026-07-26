@@ -431,6 +431,17 @@ bool ArgumentBinder::bindBuffer(const json& arg, wasm_val_t& out, std::string& e
     BufferSpec spec;
     if (!parseBufferSpec(arg, spec, error)) return false;
 
+    // Guard the byte-size against uint32 overflow before the fill loop, which
+    // runs spec.count iterations. Truncating count*elemSize to uint32 previously
+    // let a huge count wrap to a small allocation while the loop still wrote
+    // spec.count elements, corrupting host memory. Comparing counts (division)
+    // avoids overflowing the comparison itself; a genuine out-of-memory is still
+    // reported separately by cn_alloc.
+    if (spec.elemSize == 0 || spec.count > 0xFFFFFFFFull / spec.elemSize) {
+        error = "buffer of " + std::to_string(spec.count) +
+                " elements is too large to address (over 4 GB)";
+        return false;
+    }
     const uint32_t byteSize = static_cast<uint32_t>(spec.count * spec.elemSize);
     uint64_t appPtr = wasmAlloc(entry_, byteSize, error);
     if (!appPtr) return false;
@@ -455,6 +466,13 @@ bool ArgumentBinder::bindBuffer(const json& arg, wasm_val_t& out, std::string& e
 bool ArgumentBinder::bindBytes(const uint8_t* data, size_t byteSize, size_t count,
                                 wasm_val_t& ptrSlot, wasm_val_t& lenSlot,
                                 std::string& error) {
+    // Reject buffers past the 4 GB WASM address space before the uint32 cast, so
+    // a huge payload can never truncate into a small allocation.
+    if (byteSize > 0xFFFFFFFFull) {
+        error = "buffer of " + std::to_string(byteSize) +
+                " bytes is too large to address (over 4 GB)";
+        return false;
+    }
     uint64_t appPtr = wasmAlloc(entry_, static_cast<uint32_t>(byteSize), error);
     if (!appPtr) return false;
 

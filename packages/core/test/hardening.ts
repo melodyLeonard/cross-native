@@ -71,6 +71,21 @@ async function testBadArrayElement(backend: Backend): Promise<void> {
   check('malformed array element rejects cleanly (no hang)', rejected && !hung);
 }
 
+/**
+ * A large buffer (past the 512 KB module-malloc heap) still round-trips — array
+ * arguments grow the module's own linear memory via cn_alloc — and the
+ * overflow guard added for huge counts must not reject a genuine buffer.
+ */
+async function testLargeBuffer(backend: Backend): Promise<void> {
+  const mod = await loadPlain(backend, 'hardening-largebuf');
+  const n = 100_000; // 800 KB of f64
+  const sum = (await withDeadline(
+    mod.call('sum_array', [new Array(n).fill(1)]),
+    5000
+  )) as number;
+  check('large buffer (800 KB) round-trips correctly', sum === n, String(sum));
+}
+
 export async function testHardening(): Promise<void> {
   section('Hardening');
 
@@ -78,6 +93,7 @@ export async function testHardening(): Promise<void> {
   try {
     await testTimeoutWithoutPlugins(backend);
     await testBadArrayElement(backend);
+    await testLargeBuffer(backend);
   } finally {
     backend.dispose();
   }
