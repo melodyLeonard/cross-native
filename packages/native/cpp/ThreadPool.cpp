@@ -87,11 +87,14 @@ void ThreadPool::workerLoop() {
     
     // Execute task
     activeCount_++;
+    // A task must never take down the worker (and with it the whole thread
+    // pool). Tasks are expected to deliver their own errors to their callers;
+    // anything that still escapes is contained here rather than reaching
+    // std::terminate. catch (...) covers non-std throws too.
     try {
       task.func();
-    } catch (const std::exception& e) {
-      // Log error but don't crash the worker
-      // In production, report to error tracking
+    } catch (const std::exception&) {
+    } catch (...) {
     }
     activeCount_--;
   }

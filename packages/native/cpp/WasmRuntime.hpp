@@ -91,11 +91,6 @@ public:
    */
   bool isLoaded(const std::string& moduleId) const;
 
-  /**
-   * Get runtime stats.
-   */
-  std::unordered_map<std::string, double> getStats() const;
-
 private:
   struct Impl;
   std::unique_ptr<Impl> pImpl; // PIMPL to keep wasm3 out of the public header

@@ -6,7 +6,7 @@
  * adding a sibling of this file — nothing outside `drivers/` changes.
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { access, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { run } from '../toolchain.ts';
 import type { CompileRequest, CompileResult } from '../types.ts';
@@ -23,6 +23,11 @@ const TARGET = 'wasm32-unknown-unknown';
 // installed from npm (no monorepo crate path on disk). Overridable for forks.
 const CRATE_GIT =
   process.env.CROSSNATIVE_CRATE_GIT ?? 'https://github.com/melodyLeonard/cross-native';
+
+// Pin the git dependency to a release tag so builds are reproducible and match
+// the installed package rather than floating on the default branch. Bumped per
+// release (see docs/releasing.md); overridable for forks and local testing.
+const CRATE_TAG = process.env.CROSSNATIVE_CRATE_TAG ?? 'crossnative-v0.1.0-alpha.6';
 
 function defaultManifest(
   crateName: string,
@@ -52,7 +57,7 @@ strip = "symbols"
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await readFile(path);
+    await access(path);
     return true;
   } catch {
     return false;
@@ -100,7 +105,7 @@ async function ensureCrate(request: CompileRequest): Promise<void> {
   const localCrate = join(request.runtimeCratePath, 'Cargo.toml');
   const dep = (await exists(localCrate))
     ? `{ path = "${request.runtimeCratePath}" }`
-    : `{ git = "${CRATE_GIT}", package = "crossnative" }`;
+    : `{ git = "${CRATE_GIT}", package = "crossnative", tag = "${CRATE_TAG}" }`;
   await writeFile(manifestPath, defaultManifest(request.moduleName, dep, libPath));
 }
 
